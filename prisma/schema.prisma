@@ -1,0 +1,38 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql" // Change this if you're using another database
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           Int        @id @default(autoincrement())
+  username     String     @unique
+  email        String     @unique
+  password     String
+  role         Role       @default(USER)
+  isVerified   Boolean    @default(false) // New field for email verification
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  otps         Otp[]      // Relation to Otp model
+}
+
+model Otp {
+  id           Int      @id @default(autoincrement())
+  email        String
+  otp          String
+  expiresAt    DateTime
+  userId       Int
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([email])
+  @@index([expiresAt])
+}
+
+enum Role {
+  USER
+  ADMIN
+  DEVELOPER // Add DEVELOPER role from your signup form
+}
