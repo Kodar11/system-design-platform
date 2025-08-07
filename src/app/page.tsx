@@ -1,7 +1,7 @@
 // app/page.tsx
-import { getServerSession } from "next-auth"; // Import getServerSession
-import { NEXT_AUTH_CONFIG } from "@/lib/nextAuthConfig"; // Import your NextAuth config
-import UserSessionDisplay from "@/components/home/UserSessionDisplay"; // Import the new client component
+import { getServerSession } from "next-auth"; 
+import { NEXT_AUTH_CONFIG } from "@/lib/nextAuthConfig"; 
+import UserSessionDisplay from "@/components/home/UserSessionDisplay"; 
 
 export default async function Home() {
   const session = await getServerSession(NEXT_AUTH_CONFIG);

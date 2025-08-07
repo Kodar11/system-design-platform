@@ -1,23 +1,21 @@
-// src/components/home/UserSessionDisplay.tsx
-"use client"; // This directive makes this a Client Component
+"use client";
 
 import { signOut } from "next-auth/react";
 import Link from "next/link";
-import { Session } from "next-auth"; // Import Session type
+import { Session } from "next-auth";
 
 interface UserSessionDisplayProps {
-  session: Session | null; // Pass the session object as a prop
+  session: Session | null;
 }
 
 export default function UserSessionDisplay({ session }: UserSessionDisplayProps) {
   return (
     <div className="flex flex-col gap-8 items-center sm:items-start w-full max-w-4xl">
       <h1 className="text-4xl font-bold text-center sm:text-left mb-4">
-        Welcome to Next.js Auth App
+        Welcome to System Design Platform
       </h1>
 
       {session ? (
-        // Display user details if logged in
         <div className="bg-white shadow-lg rounded-lg p-8 w-full max-w-md text-center sm:text-left">
           <h2 className="text-2xl font-semibold mb-4 text-blue-600">
             Hello, {session.user?.username || session.user?.email}!
@@ -30,6 +28,15 @@ export default function UserSessionDisplay({ session }: UserSessionDisplayProps)
           </p>
           <p className="text-gray-700 mb-2">
             <span className="font-medium">Role:</span> {session.user?.role}
+          </p>
+          <p className="text-gray-700 mb-2">
+            <span className="font-medium">Subscription:</span> {session.user?.subscriptionStatus}
+          </p>
+          <p className="text-gray-700 mb-2">
+            <span className="font-medium">Design Credits:</span> {session.user?.dailyDesignCredits}
+          </p>
+          <p className="text-gray-700 mb-2">
+            <span className="font-medium">Problem Credits:</span> {session.user?.dailyProblemCredits}
           </p>
           <p className="text-gray-700 mb-4">
             <span className="font-medium">Email Verified:</span>{" "}
@@ -47,7 +54,6 @@ export default function UserSessionDisplay({ session }: UserSessionDisplayProps)
           </button>
         </div>
       ) : (
-        // Prompt to log in or sign up if not logged in
         <div className="bg-white shadow-lg rounded-lg p-8 w-full max-w-md text-center">
           <h2 className="text-2xl font-semibold mb-4 text-gray-800">
             You are not logged in.

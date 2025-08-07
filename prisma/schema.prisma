@@ -3,36 +3,79 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql" // Change this if you're using another database
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
 model User {
-  id           Int        @id @default(autoincrement())
-  username     String     @unique
-  email        String     @unique
-  password     String
-  role         Role       @default(USER)
-  isVerified   Boolean    @default(false) // New field for email verification
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
-  otps         Otp[]      // Relation to Otp model
+  id                  String             @id @default(uuid())
+  email               String             @unique
+  username            String             @unique
+  password            String
+  role                Role               @default(USER)
+  isVerified          Boolean            @default(false)
+  subscriptionStatus  SubscriptionStatus @default(FREE)
+  dailyDesignCredits  Int                @default(0)
+  dailyProblemCredits Int                @default(0)
+  lastCreditReset     DateTime           @default(now())
+  otps                Otp[]
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+  Payment             Payment[]
 }
 
 model Otp {
-  id           Int      @id @default(autoincrement())
-  email        String
-  otp          String
-  expiresAt    DateTime
-  userId       Int
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id        String   @id @default(uuid())
+  email     String
+  otp       String
+  expiresAt DateTime
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([email])
+  @@index([userId])
   @@index([expiresAt])
 }
 
 enum Role {
   USER
   ADMIN
-  DEVELOPER // Add DEVELOPER role from your signup form
+  CONTENT_ADDER
+}
+
+enum SubscriptionStatus {
+  FREE
+  PRO
+  TEAM
+  CANCELLED
+}
+
+model Plan {
+  id               String   @id @default(uuid())
+  name             String   @unique
+  priceInPaisa     Int
+  razorpayPlanId   String   @unique
+  payments         Payment[]
+}
+
+model Payment {
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  planId String
+  plan   Plan   @relation(fields: [planId], references: [id])
+
+  razorpaySubscriptionId String?       @unique
+  status                 PaymentStatus @default(PENDING)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum PaymentStatus {
+  PENDING
+  ACTIVE
+  CANCELLED
+  FAILED
 }

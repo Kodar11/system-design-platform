@@ -1,24 +1,31 @@
-import type { NextAuthOptions, DefaultUser, DefaultSession } from "next-auth";
+import { NextAuthOptions, DefaultUser, DefaultSession } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma/userService";
+import { Role, SubscriptionStatus } from "@prisma/client";
 
 declare module "next-auth" {
   interface Session {
     user: {
-      id: number;
+      id: string;
       username: string;
       email: string;
-      role: string;
-      isVerified: boolean; // Add isVerified to session
+      role: Role;
+      isVerified: boolean;
+      subscriptionStatus: SubscriptionStatus;
+      dailyDesignCredits: number;
+      dailyProblemCredits: number;
     } & DefaultSession["user"];
   }
 
   interface User extends DefaultUser {
-    id: number;
+    id: string;
     username: string;
-    role: string;
-    isVerified: boolean; // Add isVerified to user
+    role: Role;
+    isVerified: boolean;
+    subscriptionStatus: SubscriptionStatus;
+    dailyDesignCredits: number;
+    dailyProblemCredits: number;
   }
 }
 
@@ -44,7 +51,6 @@ export const NEXT_AUTH_CONFIG: NextAuthOptions = {
             throw new Error("User not found");
           }
 
-          // Check if user is verified before allowing login
           if (!user.isVerified) {
             throw new Error("Email not verified. Please verify your email to log in.");
           }
@@ -59,13 +65,15 @@ export const NEXT_AUTH_CONFIG: NextAuthOptions = {
             id: user.id,
             username: user.username,
             email: user.email,
-            role: user.role as string,
+            role: user.role,
             isVerified: user.isVerified,
+            subscriptionStatus: user.subscriptionStatus,
+            dailyDesignCredits: user.dailyDesignCredits,
+            dailyProblemCredits: user.dailyProblemCredits,
           };
         } catch (error: unknown) {
           if (error instanceof Error) {
             console.error("Authorization error:", error.message);
-            // Re-throw the error to be caught by NextAuth.js and displayed to the user
             throw error;
           } else {
             console.error("Authorization error:", error);
@@ -83,22 +91,27 @@ export const NEXT_AUTH_CONFIG: NextAuthOptions = {
         token.username = user.username;
         token.email = user.email;
         token.role = user.role;
-        token.isVerified = user.isVerified; // Add isVerified to JWT
+        token.isVerified = user.isVerified;
+        token.subscriptionStatus = user.subscriptionStatus;
+        token.dailyDesignCredits = user.dailyDesignCredits;
+        token.dailyProblemCredits = user.dailyProblemCredits;
       }
       return token;
     },
     async session({ session, token }) {
       if (session.user) {
-        session.user.id = token.uid as number;
+        session.user.id = token.uid as string;
         session.user.username = token.username as string;
         session.user.email = token.email as string;
-        session.user.role = token.role as string;
-        session.user.isVerified = token.isVerified as boolean; // Add isVerified to session
+        session.user.role = token.role as Role;
+        session.user.isVerified = token.isVerified as boolean;
+        session.user.subscriptionStatus = token.subscriptionStatus as SubscriptionStatus;
+        session.user.dailyDesignCredits = token.dailyDesignCredits as number;
+        session.user.dailyProblemCredits = token.dailyProblemCredits as number;
       }
       return session;
     },
   },
-
   pages: {
     signIn: "/api/auth/login",
   },
