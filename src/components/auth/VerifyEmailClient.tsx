@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { verifyOtp } from "@/app/actions"; 
-import { sendOtp } from "@/app/actions"; 
+import { verifyOtp } from "@/app/actions";
+import { sendOtp } from "@/app/actions";
 
 interface VerifyEmailClientProps {
   initialEmail: string;
@@ -47,8 +47,12 @@ export default function VerifyEmailClient({ initialEmail }: VerifyEmailClientPro
       await sendOtp(email);
       setMessage("New OTP sent to your email.");
       setResendCooldown(60);
-    } catch (err: any) {
-      setError(err.message || "Failed to resend OTP.");
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message || "Failed to resend OTP.");
+      } else {
+        setError("An unknown error occurred while resending OTP.");
+      }
     } finally {
       setLoading(false);
     }
@@ -61,17 +65,21 @@ export default function VerifyEmailClient({ initialEmail }: VerifyEmailClientPro
 
     const otp = formData.get("otp");
     if (!otp) {
-        setError("OTP is required.");
-        setLoading(false);
-        return;
+      setError("OTP is required.");
+      setLoading(false);
+      return;
     }
 
     try {
       await verifyOtp(formData);
-      
-    } catch (err: any) {
-      setError(err.message || "OTP verification failed.");
-      router.push("/api/auth/login");
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message || "OTP verification failed.");
+      } else {
+        setError("An unknown error occurred during OTP verification.");
+      }
+      // You can't redirect from a client component here.
+      // The Server Action must handle it.
     } finally {
       setLoading(false);
     }
@@ -88,7 +96,7 @@ export default function VerifyEmailClient({ initialEmail }: VerifyEmailClientPro
         {message && <div className="text-green-500 mb-4 text-center">{message}</div>}
 
         <form action={handleVerifyOtp}>
-          <input type="hidden" name="email" value={email} /> 
+          <input type="hidden" name="email" value={email} />
           <div className="mb-4">
             <label className="block text-sm font-medium mb-2" htmlFor="otp">
               Enter OTP
@@ -96,7 +104,7 @@ export default function VerifyEmailClient({ initialEmail }: VerifyEmailClientPro
             <input
               type="text"
               id="otp"
-              name="otp" 
+              name="otp"
               maxLength={6}
               required
               className="w-full p-2 border border-gray-300 rounded-md text-center text-xl tracking-widest"

@@ -22,6 +22,9 @@ model User {
   createdAt           DateTime           @default(now())
   updatedAt           DateTime           @updatedAt
   Payment             Payment[]
+  logs                Log[]
+  Design              Design[]
+  Submission          Submission[]
 }
 
 model Otp {
@@ -51,11 +54,11 @@ enum SubscriptionStatus {
 }
 
 model Plan {
-  id               String   @id @default(uuid())
-  name             String   @unique
-  priceInPaisa     Int
-  razorpayPlanId   String   @unique
-  payments         Payment[]
+  id             String    @id @default(uuid())
+  name           String    @unique
+  priceInPaisa   Int
+  razorpayPlanId String    @unique
+  payments       Payment[]
 }
 
 model Payment {
@@ -78,4 +81,74 @@ enum PaymentStatus {
   ACTIVE
   CANCELLED
   FAILED
+}
+
+// --- Saved User Designs ---
+model Design {
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  name        String
+  diagramData Json
+  isDeleted   Boolean @default(false) // New: Soft-delete flag
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// --- System Design Problem Solving Platform ---
+model Problem {
+  id           String     @id @default(uuid())
+  title        String
+  requirements Json
+  difficulty   Difficulty @default(MEDIUM)
+  isDeleted    Boolean    @default(false) // New: Soft-delete flag
+
+  submissions Submission[]
+}
+
+enum Difficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+model Submission {
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  problemId String
+  problem   Problem @relation(fields: [problemId], references: [id])
+
+  submittedDiagramData Json
+  evaluationResult     Json
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// --- Editor Components (Part of the KBS) ---
+model Component {
+  id               String  @id @default(uuid())
+  name             String  @unique
+  type             String
+  iconUrl          String?
+  documentationUrl String?
+  metadata         Json
+  isDeleted        Boolean @default(false) // New: Soft-delete flag
+}
+
+// --- Auditing & Logging ---
+model Log {
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id])
+
+  action       String // e.g., 'CREATE', 'EDIT', 'DELETE'
+  resourceType String // e.g., 'COMPONENT', 'PROBLEM'
+  resourceId   String? // The ID of the affected resource
+
+  createdAt DateTime @default(now())
 }

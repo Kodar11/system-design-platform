@@ -1,15 +1,15 @@
 // app/admin/page.tsx
 import { getServerSession } from "next-auth";
-import { NEXT_AUTH_CONFIG } from "@/lib/nextAuthConfig"; 
-import { redirect } from "next/navigation"; 
+import { NEXT_AUTH_CONFIG } from "@/lib/nextAuthConfig";
+import { redirect } from "next/navigation";
 
 export default async function AdminPage() {
   const session = await getServerSession(NEXT_AUTH_CONFIG);
 
   if (!session || session.user?.role !== "ADMIN") {
-   
+
     console.warn("Unauthorized access attempt to admin page.");
-    redirect("/api/auth/login"); 
+    redirect("/api/auth/login");
   }
 
   return (
@@ -55,8 +55,9 @@ export default async function AdminPage() {
           </div>
         </div>
 
-        <p className="mt-8 text-sm text-gray-500">
-          This page is protected and only accessible to users with the 'ADMIN' role.
+        <p className="text-lg text-gray-800 mb-4">
+          Welcome, <span className="font-semibold">{session.user.name}</span>!
+          You&apos;ve successfully accessed the admin-only area.
         </p>
       </div>
     </div>

@@ -8,16 +8,24 @@ import { signupUser } from "@/app/actions";
 export default function SignupFormClient() {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setLoading(true);
 
     const formData = new FormData(e.target as HTMLFormElement);
     try {
       await signupUser(formData);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) { // Use 'unknown' instead of 'any'
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError("An unknown error occurred.");
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -54,8 +62,8 @@ export default function SignupFormClient() {
             <option value="CONTENT_ADDER">Content Adder</option>
           </select>
         </div>
-        <button type="submit" className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded mb-4">
-          Sign Up
+        <button type="submit" disabled={loading} className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded mb-4 disabled:bg-gray-400">
+          {loading ? "Signing Up..." : "Sign Up"}
         </button>
         <p className="text-center">
           Already have an account?{" "}

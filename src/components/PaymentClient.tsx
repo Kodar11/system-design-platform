@@ -4,26 +4,80 @@
 import Script from "next/script";
 import { useState } from "react";
 import { createRazorpaySubscription } from "@/app/actions";
-import { useSession } from "next-auth/react"; // Import useSession
+import { useSession } from "next-auth/react";
 
+// 1. Define types for the data we expect from the backend
+interface Plan {
+  id: string;
+  name: string;
+  priceInPaisa: number;
+}
 
+// 2. Define the types for Razorpay's handler responses
+interface RazorpaySuccessResponse {
+  razorpay_payment_id: string;
+  razorpay_order_id: string;
+  razorpay_signature: string;
+}
+
+interface RazorpayFailureResponse {
+  error: {
+    code: string;
+    description: string;
+    source: string;
+    step: string;
+    reason: string;
+    metadata: {
+      order_id: string;
+      payment_id: string;
+    };
+  };
+}
+
+// 3. Define the options for the Razorpay constructor
+interface RazorpayOptions {
+  key: string | undefined;
+  subscription_id: string;
+  name: string;
+  description: string;
+  prefill: {
+    name: string;
+    email: string;
+  };
+  handler: (response: RazorpaySuccessResponse) => void;
+  theme: {
+    color: string;
+  };
+}
+
+// 4. Define a specific type for the Razorpay constructor
+interface RazorpayConstructor {
+  new (options: RazorpayOptions): {
+    open: () => void;
+    on: (event: string, callback: (response: RazorpayFailureResponse) => void) => void;
+  };
+}
+
+// 5. Augment the global Window object with the correct type
 declare global {
   interface Window {
-    Razorpay: new (options: any) => any;
+    Razorpay: RazorpayConstructor;
   }
 }
 
-export default function PaymentClient({ plans }: { plans: any[] }) {
-  const { update } = useSession(); // Use the update function
+// 6. Use the new types for the component props
+export default function PaymentClient({ plans }: { plans: Plan[] }) {
+  const { update, data: session } = useSession();
   const [loading, setLoading] = useState(false);
-  const user = { name: "Test User", email: "test@example.com" }; // Get this from session
+  
+  const user = { name: session?.user?.name || "Guest", email: session?.user?.email || "guest@example.com" };
 
   const handleSubscribe = async (planName: string) => {
     setLoading(true);
     try {
       const { subscriptionId } = await createRazorpaySubscription(planName);
-      
-      const options = {
+
+      const options: RazorpayOptions = {
         key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
         subscription_id: subscriptionId,
         name: "ArchiForge",
@@ -32,10 +86,10 @@ export default function PaymentClient({ plans }: { plans: any[] }) {
           name: user.name,
           email: user.email,
         },
-        handler: async function (response: any) {
+        handler: async function (response: RazorpaySuccessResponse) {
           if (response.razorpay_payment_id) {
             alert("Payment successful!");
-            await update(); // This will force the session to refresh
+            await update();
           }
         },
         theme: {
@@ -44,18 +98,17 @@ export default function PaymentClient({ plans }: { plans: any[] }) {
       };
 
       const paymentObject = new window.Razorpay(options);
-      paymentObject.on("payment.failed", function (response: any) {
+      paymentObject.on("payment.failed", function (response: RazorpayFailureResponse) {
         alert(response.error.description);
       });
       paymentObject.open();
-    } catch (error) {
+    } catch (error: unknown) {
       console.error(error);
       alert("Failed to start payment. Please try again.");
     } finally {
       setLoading(false);
     }
   };
-  
 
   return (
     <>

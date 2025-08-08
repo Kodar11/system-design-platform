@@ -113,6 +113,6 @@ export const NEXT_AUTH_CONFIG: NextAuthOptions = {
     },
   },
   pages: {
-    signIn: "/api/auth/login",
+    signIn: "/(auth)/login",
   },
 };

@@ -47,7 +47,7 @@ export default function UserSessionDisplay({ session }: UserSessionDisplayProps)
             )}
           </p>
           <button
-            onClick={() => signOut({ callbackUrl: "/api/auth/login" })}
+            onClick={() => signOut({ callbackUrl: "/login" })}
             className="mt-4 bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-full transition-colors"
           >
             Sign Out
@@ -63,7 +63,7 @@ export default function UserSessionDisplay({ session }: UserSessionDisplayProps)
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link
-              href="/api/auth/login"
+              href="/login"
               className="inline-flex items-center justify-center rounded-full border border-solid border-transparent transition-colors bg-blue-600 text-white gap-2 hover:bg-blue-700 font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto"
             >
               Sign In

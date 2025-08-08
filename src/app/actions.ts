@@ -5,12 +5,11 @@ import bcrypt from "bcryptjs";
 import nodemailer from "nodemailer";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { Role, SubscriptionStatus } from "@prisma/client"; // Import necessary enums
-import { NEXT_AUTH_CONFIG } from "@/lib/nextAuthConfig"; // Adjust the import path as necessary
+import { Role } from "@prisma/client";
+import { NEXT_AUTH_CONFIG } from "@/lib/nextAuthConfig";
 import Razorpay from "razorpay";
 import { getServerSession } from "next-auth";
 
-// Define custom types if official Razorpay types are unavailable
 interface RazorpaySubscription {
   id: string;
   entity: string;
@@ -18,7 +17,6 @@ interface RazorpaySubscription {
   status: string;
   quantity?: number;
   total_count?: number;
-  // Add other properties as per Razorpay API response
 }
 
 interface RazorpaySubscriptionCreateOptions {
@@ -38,6 +36,8 @@ const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID!,
   key_secret: process.env.RAZORPAY_KEY_SECRET!,
 }) as RazorpayInstance;
+
+const saltRounds = 10;
 
 /**
  * Creates a Razorpay subscription and returns the ID.
@@ -62,9 +62,9 @@ export async function createRazorpaySubscription(planName: string) {
 
   const subscriptionOptions: RazorpaySubscriptionCreateOptions = {
     plan_id: plan.razorpayPlanId,
-    customer_notify: 1, // Notify the customer
+    customer_notify: 1,
     quantity: 1,
-    total_count: 12, // 12 months subscription
+    total_count: 12,
   };
 
   try {
@@ -83,7 +83,7 @@ export async function createRazorpaySubscription(planName: string) {
     });
 
     return { subscriptionId: subscription.id };
-  } catch (error) {
+  } catch (error: unknown) { // Use 'unknown' for better type safety
     console.error("Error creating Razorpay subscription:", error);
     if (error instanceof Error) {
       throw new Error(`Failed to create subscription order: ${error.message}`);
@@ -92,21 +92,16 @@ export async function createRazorpaySubscription(planName: string) {
   }
 }
 
-// Re-using constants from your previous route handlers
-const saltRounds = 10;
-
-// ... (other server actions like signupUser, sendOtp, verifyOtp can remain unchanged for now)
 /**
  * Server Action to handle user sign-up.
- * This function replaces the logic in `app/api/users/route.ts`.
  * @param formData FormData from the sign-up form.
  */
 export async function signupUser(formData: FormData) {
-  let { username, email, password, role } = Object.fromEntries(formData) as {
+  const { username, email, password, role } = Object.fromEntries(formData) as {
     username: string;
     email: string;
     password: string;
-    role: Role | string; // Allow string input and cast to Role
+    role: Role;
   };
 
   if (!username || !email || !password || !role) {
@@ -114,10 +109,9 @@ export async function signupUser(formData: FormData) {
   }
 
   try {
-    email = email.toLowerCase();
-
+    const emailLower = email.toLowerCase();
     const existingUser = await prisma.user.findUnique({
-      where: { email },
+      where: { email: emailLower },
     });
 
     if (existingUser) {
@@ -126,24 +120,25 @@ export async function signupUser(formData: FormData) {
 
     const hashedPassword = await bcrypt.hash(password, saltRounds);
 
-    // Cast the role to the Role enum, defaulting to USER if invalid
-    const validRole = role === "USER" || role === "ADMIN" || role === "CONTENT_ADDER" ? role : "USER";
+    const validRole = (Object.values(Role) as string[]).includes(role) ? role : "USER";
 
     await prisma.user.create({
       data: {
         username,
-        email,
+        email: emailLower,
         password: hashedPassword,
-        role: validRole as Role, // Explicitly cast to Role
+        role: validRole as Role,
         isVerified: false,
       },
     });
 
-    // We'll call the sendOtp function directly instead of making an API call.
-    await sendOtp(email);
-  } catch (error: any) {
+    await sendOtp(emailLower);
+  } catch (error: unknown) {
     console.error("Error creating user:", error);
-    throw new Error(error.message || "Failed to create user.");
+    if (error instanceof Error) {
+        throw new Error(error.message || "Failed to create user.");
+    }
+    throw new Error("Failed to create user due to an unknown error.");
   }
 
   redirect(`/verify-email?email=${encodeURIComponent(email)}`);
@@ -151,7 +146,6 @@ export async function signupUser(formData: FormData) {
 
 /**
  * Server Action to send an OTP to a user's email.
- * This function replaces the logic in `app/api/send-otp/route.ts`.
  */
 export async function sendOtp(email: string) {
   if (!email) {
@@ -213,15 +207,17 @@ export async function sendOtp(email: string) {
     };
 
     await transporter.sendMail(mailOptions);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error sending OTP:", error);
-    throw new Error("Failed to send OTP. Please try again later.");
+    if (error instanceof Error) {
+        throw new Error(error.message || "Failed to send OTP. Please try again later.");
+    }
+    throw new Error("Failed to send OTP due to an unknown error.");
   }
 }
 
 /**
  * Server Action to verify a user's OTP.
- * This function replaces the logic in `app/api/verify-otp/route.ts`.
  * @param formData FormData from the verification form.
  */
 export async function verifyOtp(formData: FormData) {
@@ -259,8 +255,11 @@ export async function verifyOtp(formData: FormData) {
     revalidatePath("/");
     revalidatePath("/api/auth/login");
     redirect("/api/auth/login?verified=true");
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error verifying OTP:", error);
-    throw new Error(error.message || "Failed to verify OTP.");
+    if (error instanceof Error) {
+        throw new Error(error.message || "Failed to verify OTP.");
+    }
+    throw new Error("Failed to verify OTP due to an unknown error.");
   }
 }
