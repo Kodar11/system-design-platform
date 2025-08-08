@@ -98,7 +98,7 @@ async function main() {
     {
       name: 'Message Queue',
       type: 'MESSAGING',
-      iconUrl: '/assets/icons/message-queue.svg',
+      iconUrl: '/assets/icons/http-que.svg',
       documentationUrl: 'https://docs.example.com/queue',
       metadata: {},
     },

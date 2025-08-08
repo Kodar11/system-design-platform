@@ -2,8 +2,8 @@ import { withAuth } from "next-auth/middleware";
 import { NextResponse } from "next/server";
 
 const requestCounts = new Map<string, { count: number; lastReset: number }>();
-const RATE_LIMIT_DURATION = 60 * 1000;
-const MAX_REQUESTS = 10;
+const RATE_LIMIT_DURATION = 60 * 10000;
+const MAX_REQUESTS = 100;
 
 export default withAuth(
   function middleware(req) {

@@ -20,7 +20,10 @@
     "nodemailer": "^6.10.1",
     "razorpay": "^2.9.6",
     "react": "19.1.0",
-    "react-dom": "19.1.0"
+    "react-dom": "19.1.0",
+    "react-hook-form": "^7.62.0",
+    "reactflow": "^11.11.4",
+    "zustand": "^5.0.7"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
