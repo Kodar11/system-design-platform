@@ -2,8 +2,8 @@ import { withAuth } from "next-auth/middleware";
 import { NextResponse } from "next/server";
 
 const requestCounts = new Map<string, { count: number; lastReset: number }>();
-const RATE_LIMIT_DURATION = 60 * 10000;
-const MAX_REQUESTS = 100;
+const RATE_LIMIT_DURATION = 60 * 1000000;
+const MAX_REQUESTS = 1000000;
 
 export default withAuth(
   function middleware(req) {
@@ -25,8 +25,6 @@ export default withAuth(
       return new NextResponse("Too Many Requests", { status: 429, headers: { 'Retry-After': (RATE_LIMIT_DURATION / 1000).toString() } });
     }
 
-    console.log("Middleware - Path:", req.nextUrl.pathname);
-    console.log("Middleware - Token (if authorized):", req.nextauth.token);
 
     if (req.nextUrl.pathname.startsWith("/admin") && req.nextauth.token?.role !== "ADMIN") {
       console.log("Middleware: Redirecting non-admin from /admin to login.");

@@ -5,10 +5,9 @@ import { useDiagramStore } from '@/store/diagramStore';
 
 export const BottomBar = () => {
   const selectedNode = useDiagramStore(state => state.selectedNode);
-  
-  // Dummy functions for now
-  const handleGroup = () => console.log('Group clicked');
-  const handleUngroup = () => console.log('Ungroup clicked');
+  const groupSelectedNodes = useDiagramStore(state => state.groupSelectedNodes);
+  const ungroupSelectedNodes = useDiagramStore(state => state.ungroupSelectedNodes);
+  const setActiveTool = useDiagramStore(state => state.setActiveTool);
 
   return (
     <div className="bottom-bar p-4 bg-gray-200 flex justify-center items-center gap-4">
@@ -20,17 +19,22 @@ export const BottomBar = () => {
 
       {/* Shapes */}
       <div className="flex gap-2">
-        <button className="p-2 rounded bg-gray-400 text-white">Rectangle</button>
+        <button onClick={() => setActiveTool('rectangle')} className="p-2 rounded bg-gray-400 text-white">Rectangle</button>
         <button className="p-2 rounded bg-gray-400 text-white">Text Box</button>
       </div>
       
       {/* Grouping Tools */}
-      {selectedNode && (
-        <div className="flex gap-2">
-          <button onClick={handleGroup} className="p-2 rounded bg-purple-500 text-white">Group</button>
-          <button onClick={handleUngroup} className="p-2 rounded bg-purple-500 text-white">Ungroup</button>
-        </div>
-      )}
+      <div className="flex gap-2">
+        <button onClick={groupSelectedNodes} className="p-2 rounded bg-purple-500 text-white">Group</button>
+        <button onClick={ungroupSelectedNodes} className="p-2 rounded bg-purple-500 text-white">Ungroup</button>
+      </div>
+      
+      {/* New Tools */}
+      <div className="flex gap-2">
+        <button onClick={() => setActiveTool('lasso')} className="p-2 rounded bg-green-500 text-white">Lasso</button>
+        <button onClick={() => setActiveTool('eraser')} className="p-2 rounded bg-red-500 text-white">Eraser</button>
+        <button onClick={() => setActiveTool('none')} className="p-2 rounded bg-blue-500 text-white">None</button>
+      </div>
     </div>
   );
 };
