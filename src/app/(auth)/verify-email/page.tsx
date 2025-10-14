@@ -19,12 +19,13 @@
 
 import VerifyEmailClient from "@/components/auth/VerifyEmailClient";
 
-export default async function VerifyEmailPage({ searchParams }: { searchParams: { email?: string } }) {
-  const initialEmail = searchParams?.email || '';
+export default async function VerifyEmailPage({ searchParams }: { searchParams: Promise<{ email?: string }> }) {
+    const params = await searchParams;
+    const initialEmail = params?.email || '';
 
-  return (
-    <div className="min-h-screen flex justify-center items-center bg-gray-100">
-      <VerifyEmailClient initialEmail={initialEmail} />
-    </div>
-  );
+    return (
+        <div className="min-h-screen flex justify-center items-center bg-gray-100">
+            <VerifyEmailClient initialEmail={initialEmail} />
+        </div>
+    );
 }

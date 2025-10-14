@@ -11,7 +11,6 @@ declare module "next-auth" {
       username: string;
       email: string;
       role: Role;
-      isVerified: boolean;
       subscriptionStatus: SubscriptionStatus;
       dailyDesignCredits: number;
       dailyProblemCredits: number;
@@ -22,7 +21,6 @@ declare module "next-auth" {
     id: string;
     username: string;
     role: Role;
-    isVerified: boolean;
     subscriptionStatus: SubscriptionStatus;
     dailyDesignCredits: number;
     dailyProblemCredits: number;
@@ -51,9 +49,6 @@ export const NEXT_AUTH_CONFIG: NextAuthOptions = {
             throw new Error("User not found");
           }
 
-          if (!user.isVerified) {
-            throw new Error("Email not verified. Please verify your email to log in.");
-          }
 
           const isPasswordValid = await bcrypt.compare(credentials.password, user.password);
 
@@ -66,7 +61,6 @@ export const NEXT_AUTH_CONFIG: NextAuthOptions = {
             username: user.username,
             email: user.email,
             role: user.role,
-            isVerified: user.isVerified,
             subscriptionStatus: user.subscriptionStatus,
             dailyDesignCredits: user.dailyDesignCredits,
             dailyProblemCredits: user.dailyProblemCredits,
@@ -91,7 +85,6 @@ export const NEXT_AUTH_CONFIG: NextAuthOptions = {
         token.username = user.username;
         token.email = user.email;
         token.role = user.role;
-        token.isVerified = user.isVerified;
         token.subscriptionStatus = user.subscriptionStatus;
         token.dailyDesignCredits = user.dailyDesignCredits;
         token.dailyProblemCredits = user.dailyProblemCredits;
@@ -104,7 +97,6 @@ export const NEXT_AUTH_CONFIG: NextAuthOptions = {
         session.user.username = token.username as string;
         session.user.email = token.email as string;
         session.user.role = token.role as Role;
-        session.user.isVerified = token.isVerified as boolean;
         session.user.subscriptionStatus = token.subscriptionStatus as SubscriptionStatus;
         session.user.dailyDesignCredits = token.dailyDesignCredits as number;
         session.user.dailyProblemCredits = token.dailyProblemCredits as number;

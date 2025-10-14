@@ -13,12 +13,10 @@ model User {
   username            String             @unique
   password            String
   role                Role               @default(USER)
-  isVerified          Boolean            @default(false)
   subscriptionStatus  SubscriptionStatus @default(FREE)
   dailyDesignCredits  Int                @default(0)
   dailyProblemCredits Int                @default(0)
   lastCreditReset     DateTime           @default(now())
-  otps                Otp[]
   createdAt           DateTime           @default(now())
   updatedAt           DateTime           @updatedAt
   Payment             Payment[]
@@ -28,17 +26,16 @@ model User {
 }
 
 model Otp {
-  id        String   @id @default(uuid())
-  email     String
-  otp       String
-  expiresAt DateTime
-  userId    String?
-  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([email])
-  @@index([userId])
-  @@index([expiresAt])
+  id           Int      @id @default(autoincrement())
+  email        String   @unique
+  otp          String
+  expiresAt    BigInt   // Unix timestamp as bigint for precision
+  resendCount  Int      @default(1)
+  tempUserData Json     // Store TempUserData as JSON (username, password, role)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }
+
 
 enum Role {
   USER

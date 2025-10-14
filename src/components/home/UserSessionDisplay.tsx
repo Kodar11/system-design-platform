@@ -38,14 +38,7 @@ export default function UserSessionDisplay({ session }: UserSessionDisplayProps)
           <p className="text-gray-700 mb-2">
             <span className="font-medium">Problem Credits:</span> {session.user?.dailyProblemCredits}
           </p>
-          <p className="text-gray-700 mb-4">
-            <span className="font-medium">Email Verified:</span>{" "}
-            {session.user?.isVerified ? (
-              <span className="text-green-600">Yes</span>
-            ) : (
-              <span className="text-red-600">No</span>
-            )}
-          </p>
+          
           <button
             onClick={() => signOut({ callbackUrl: "/login" })}
             className="mt-4 bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-full transition-colors"

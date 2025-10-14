@@ -2,8 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { verifyOtp } from "@/app/actions";
-import { sendOtp } from "@/app/actions";
+import { verifyAndCleanOtp, sendOtp, createUserAfterOtp } from "@/app/actions";
 
 interface VerifyEmailClientProps {
   initialEmail: string;
@@ -63,23 +62,28 @@ export default function VerifyEmailClient({ initialEmail }: VerifyEmailClientPro
     setError("");
     setMessage("");
 
-    const otp = formData.get("otp");
-    if (!otp) {
-      setError("OTP is required.");
+    const otp = formData.get("otp") as string;
+    if (!otp || !email) {
+      setError("OTP and email are required.");
       setLoading(false);
       return;
     }
 
     try {
-      await verifyOtp(formData);
+      const isValid = await verifyAndCleanOtp(email, otp);
+      if (isValid) {
+        await createUserAfterOtp(email, otp); // Create user after OTP verification
+        setMessage("User created successfully!");
+        router.push("/dashboard"); // Redirect to dashboard or another page
+      } else {
+        setError("Invalid or expired OTP. Please try again or resend OTP.");
+      }
     } catch (err: unknown) {
       if (err instanceof Error) {
-        setError(err.message || "OTP verification failed.");
+        setError(err.message || "OTP verification or user creation failed.");
       } else {
-        setError("An unknown error occurred during OTP verification.");
+        setError("An unknown error occurred during OTP verification or user creation.");
       }
-      // You can't redirect from a client component here.
-      // The Server Action must handle it.
     } finally {
       setLoading(false);
     }
