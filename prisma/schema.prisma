@@ -1,151 +1,151 @@
-generator client {
-  provider = "prisma-client-js"
-}
+  generator client {
+    provider = "prisma-client-js"
+  }
 
-datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-}
+  datasource db {
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
+  }
 
-model User {
-  id                  String             @id @default(uuid())
-  email               String             @unique
-  username            String             @unique
-  password            String
-  role                Role               @default(USER)
-  subscriptionStatus  SubscriptionStatus @default(FREE)
-  dailyDesignCredits  Int                @default(0)
-  dailyProblemCredits Int                @default(0)
-  lastCreditReset     DateTime           @default(now())
-  createdAt           DateTime           @default(now())
-  updatedAt           DateTime           @updatedAt
-  Payment             Payment[]
-  logs                Log[]
-  Design              Design[]
-  Submission          Submission[]
-}
+  model User {
+    id                  String             @id @default(uuid())
+    email               String             @unique
+    username            String             @unique
+    password            String
+    role                Role               @default(USER)
+    subscriptionStatus  SubscriptionStatus @default(FREE)
+    dailyDesignCredits  Int                @default(0)
+    dailyProblemCredits Int                @default(0)
+    lastCreditReset     DateTime           @default(now())
+    createdAt           DateTime           @default(now())
+    updatedAt           DateTime           @updatedAt
+    Payment             Payment[]
+    logs                Log[]
+    Design              Design[]
+    Submission          Submission[]
+  }
 
-model Otp {
-  id           Int      @id @default(autoincrement())
-  email        String   @unique
-  otp          String
-  expiresAt    BigInt   // Unix timestamp as bigint for precision
-  resendCount  Int      @default(1)
-  tempUserData Json     // Store TempUserData as JSON (username, password, role)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-}
+  model Otp {
+    id           Int      @id @default(autoincrement())
+    email        String   @unique
+    otp          String
+    expiresAt    BigInt   // Unix timestamp as bigint for precision
+    resendCount  Int      @default(1)
+    tempUserData Json     // Store TempUserData as JSON (username, password, role)
+    createdAt    DateTime @default(now())
+    updatedAt    DateTime @updatedAt
+  }
 
 
-enum Role {
-  USER
-  ADMIN
-  CONTENT_ADDER
-}
+  enum Role {
+    USER
+    ADMIN
+    CONTENT_ADDER
+  }
 
-enum SubscriptionStatus {
-  FREE
-  PRO
-  TEAM
-  CANCELLED
-}
+  enum SubscriptionStatus {
+    FREE
+    PRO
+    TEAM
+    CANCELLED
+  }
 
-model Plan {
-  id             String    @id @default(uuid())
-  name           String    @unique
-  priceInPaisa   Int
-  razorpayPlanId String    @unique
-  payments       Payment[]
-}
+  model Plan {
+    id             String    @id @default(uuid())
+    name           String    @unique
+    priceInPaisa   Int
+    razorpayPlanId String    @unique
+    payments       Payment[]
+  }
 
-model Payment {
-  id     String @id @default(uuid())
-  userId String
-  user   User   @relation(fields: [userId], references: [id])
+  model Payment {
+    id     String @id @default(uuid())
+    userId String
+    user   User   @relation(fields: [userId], references: [id])
 
-  planId String
-  plan   Plan   @relation(fields: [planId], references: [id])
+    planId String
+    plan   Plan   @relation(fields: [planId], references: [id])
 
-  razorpaySubscriptionId String?       @unique
-  status                 PaymentStatus @default(PENDING)
+    razorpaySubscriptionId String?       @unique
+    status                 PaymentStatus @default(PENDING)
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+  }
 
-enum PaymentStatus {
-  PENDING
-  ACTIVE
-  CANCELLED
-  FAILED
-}
+  enum PaymentStatus {
+    PENDING
+    ACTIVE
+    CANCELLED
+    FAILED
+  }
 
-// --- Saved User Designs ---
-model Design {
-  id     String @id @default(uuid())
-  userId String
-  user   User   @relation(fields: [userId], references: [id])
+  // --- Saved User Designs ---
+  model Design {
+    id     String @id @default(uuid())
+    userId String
+    user   User   @relation(fields: [userId], references: [id])
 
-  name        String
-  diagramData Json
-  isDeleted   Boolean @default(false) // New: Soft-delete flag
+    name        String
+    diagramData Json
+    isDeleted   Boolean @default(false) // New: Soft-delete flag
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+  }
 
-// --- System Design Problem Solving Platform ---
-model Problem {
-  id           String     @id @default(uuid())
-  title        String
-  requirements Json
-  difficulty   Difficulty @default(MEDIUM)
-  isDeleted    Boolean    @default(false) // New: Soft-delete flag
+  // --- System Design Problem Solving Platform ---
+  model Problem {
+    id           String     @id @default(uuid())
+    title        String
+    requirements Json
+    difficulty   Difficulty @default(MEDIUM)
+    isDeleted    Boolean    @default(false) // New: Soft-delete flag
 
-  submissions Submission[]
-}
+    submissions Submission[]
+  }
 
-enum Difficulty {
-  EASY
-  MEDIUM
-  HARD
-}
+  enum Difficulty {
+    EASY
+    MEDIUM
+    HARD
+  }
 
-model Submission {
-  id     String @id @default(uuid())
-  userId String
-  user   User   @relation(fields: [userId], references: [id])
+  model Submission {
+    id     String @id @default(uuid())
+    userId String
+    user   User   @relation(fields: [userId], references: [id])
 
-  problemId String
-  problem   Problem @relation(fields: [problemId], references: [id])
+    problemId String
+    problem   Problem @relation(fields: [problemId], references: [id])
 
-  submittedDiagramData Json
-  evaluationResult     Json
+    submittedDiagramData Json
+    evaluationResult     Json
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+  }
 
-// --- Editor Components (Part of the KBS) ---
-model Component {
-  id               String  @id @default(uuid())
-  name             String  @unique
-  type             String
-  iconUrl          String?
-  documentationUrl String?
-  metadata         Json
-  isDeleted        Boolean @default(false) // New: Soft-delete flag
-}
+  // --- Editor Components (Part of the KBS) ---
+  model Component {
+    id               String  @id @default(uuid())
+    name             String  @unique
+    type             String
+    iconUrl          String?
+    documentationUrl String?
+    metadata         Json
+    isDeleted        Boolean @default(false) // New: Soft-delete flag
+  }
 
-// --- Auditing & Logging ---
-model Log {
-  id     String @id @default(uuid())
-  userId String
-  user   User   @relation(fields: [userId], references: [id])
+  // --- Auditing & Logging ---
+  model Log {
+    id     String @id @default(uuid())
+    userId String
+    user   User   @relation(fields: [userId], references: [id])
 
-  action       String // e.g., 'CREATE', 'EDIT', 'DELETE'
-  resourceType String // e.g., 'COMPONENT', 'PROBLEM'
-  resourceId   String? // The ID of the affected resource
+    action       String // e.g., 'CREATE', 'EDIT', 'DELETE'
+    resourceType String // e.g., 'COMPONENT', 'PROBLEM'
+    resourceId   String? // The ID of the affected resource
 
-  createdAt DateTime @default(now())
-}
+    createdAt DateTime @default(now())
+  }

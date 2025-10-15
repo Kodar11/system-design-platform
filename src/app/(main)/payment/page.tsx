@@ -6,6 +6,6 @@ export default async function PaymentPage() {
   const plans = await prisma.plan.findMany({
     where: { name: { not: "Free" } },
   });
-
+  
   return <PaymentClient plans={plans} />;
 }
