@@ -48,6 +48,236 @@ import { GoogleGenAI, Type } from "@google/genai";
 const genAI = new GoogleGenAI({ apiKey: process.env.GOOGLE_API_KEY || '' });
 
 
+// Add this complete function to your src/actions/actions.ts file (after the existing functions)
+
+const evaluationSchema = {
+    type: Type.OBJECT,
+    properties: {
+        score: { 
+            type: Type.NUMBER, 
+            description: "Overall score from 0-100 based on completeness, scalability, best practices, and requirement fulfillment" 
+        },
+        feedback: { 
+            type: Type.STRING, 
+            description: "Comprehensive feedback on the solution (4-6 paragraphs covering overall design, strengths, weaknesses, and specific recommendations)" 
+        },
+        strengths: {
+            type: Type.ARRAY,
+            description: "List of 3-5 specific strengths in the solution with technical details",
+            items: { type: Type.STRING }
+        },
+        improvements: {
+            type: Type.ARRAY,
+            description: "List of 3-5 specific areas that need improvement with actionable suggestions",
+            items: { type: Type.STRING }
+        },
+        component_analysis: {
+            type: Type.STRING,
+            description: "Detailed analysis of component choices, architecture patterns, and technology decisions (2-3 paragraphs)"
+        },
+        scalability_assessment: {
+            type: Type.STRING,
+            description: "In-depth assessment of scalability, bottlenecks, load handling, and performance considerations (2-3 paragraphs)"
+        }
+    },
+    required: ["score", "feedback", "strengths", "improvements", "component_analysis", "scalability_assessment"]
+};
+
+/**
+ * Submits a problem solution and evaluates it using AI
+ * @param problemId The ID of the problem being solved
+ * @param diagramData The diagram data containing nodes and edges
+ * @returns The submission ID to redirect to the result page
+ */
+export async function submitProblemSolution(
+    problemId: string, 
+    diagramData: any
+): Promise<string> {
+    const session = await getServerSession(NEXT_AUTH_CONFIG);
+    if (!session?.user?.id) {
+        throw new Error("Unauthorized - Please log in to submit solutions");
+    }
+
+    // 1. Validate input
+    if (!problemId || !diagramData) {
+        throw new Error("Missing required data: problemId and diagramData are required");
+    }
+
+    // 2. Get the problem from database
+    const problem = await prisma.problem.findUnique({
+        where: { id: problemId, isDeleted: false }
+    });
+
+    if (!problem) {
+        throw new Error("Problem not found or has been deleted");
+    }
+
+    // 3. Extract meaningful information from the diagram
+    const componentSummary = diagramData.nodes?.map((node: any) => {
+        const componentName = node.data?.label || node.data?.componentId || 'Unknown Component';
+        const componentType = node.type || 'generic';
+        const metadata = node.data?.metadata || {};
+        
+        return {
+            name: componentName,
+            type: componentType,
+            metadata: metadata,
+            position: node.position
+        };
+    }) || [];
+
+    const connectionSummary = diagramData.edges?.map((edge: any) => {
+        const sourceNode = diagramData.nodes?.find((n: any) => n.id === edge.source);
+        const targetNode = diagramData.nodes?.find((n: any) => n.id === edge.target);
+        
+        return {
+            from: sourceNode?.data?.label || edge.source,
+            to: targetNode?.data?.label || edge.target,
+            type: edge.label || edge.type || 'connection',
+            id: edge.id
+        };
+    }) || [];
+
+    // 4. Build comprehensive evaluation prompt
+    const prompt = `
+You are an expert System Design Evaluator with 15+ years of experience in distributed systems, cloud architecture, scalability, and software engineering best practices.
+
+PROBLEM TO SOLVE:
+═══════════════════════════════════════════════════════════════════
+Title: ${problem.title}
+Difficulty Level: ${problem.difficulty}
+
+Requirements:
+${JSON.stringify(problem.requirements, null, 2)}
+═══════════════════════════════════════════════════════════════════
+
+STUDENT'S SUBMITTED SOLUTION:
+═══════════════════════════════════════════════════════════════════
+Total Components: ${componentSummary.length}
+Total Connections: ${connectionSummary.length}
+
+Components Used:
+${componentSummary.map((comp : any, idx : number) => `${idx + 1}. ${comp.name} (Type: ${comp.type})
+   Metadata: ${JSON.stringify(comp.metadata, null, 2)}`).join('\n')}
+
+Data Flow & Connections:
+${connectionSummary.map((conn : any, idx : number) => `${idx + 1}. ${conn.from} → ${conn.to} (${conn.type})`).join('\n')}
+
+Complete Diagram Structure:
+${JSON.stringify({ components: componentSummary, connections: connectionSummary }, null, 2)}
+═══════════════════════════════════════════════════════════════════
+
+EVALUATION CRITERIA:
+Evaluate the solution comprehensively based on these dimensions:
+
+1. REQUIREMENT FULFILLMENT (30 points)
+   - Does it address all functional requirements?
+   - Are non-functional requirements considered?
+   - Does it meet the scale requirements?
+   - Are constraints properly handled?
+
+2. ARCHITECTURE & DESIGN (25 points)
+   - Are the right architectural patterns used?
+   - Is the component selection appropriate?
+   - Is the design modular and maintainable?
+   - Are there proper separation of concerns?
+
+3. SCALABILITY & PERFORMANCE (25 points)
+   - Can it handle the required scale?
+   - Are there bottlenecks?
+   - Is horizontal/vertical scaling considered?
+   - Are caching strategies appropriate?
+   - Is the database design scalable?
+
+4. RELIABILITY & AVAILABILITY (10 points)
+   - Are there single points of failure?
+   - Is redundancy properly implemented?
+   - Are failure scenarios considered?
+   - Is data replication/backup addressed?
+
+5. BEST PRACTICES (10 points)
+   - Security considerations
+   - Monitoring and observability
+   - Cost optimization
+   - Modern cloud-native approaches
+
+INSTRUCTIONS:
+- Provide a score from 0-100 based on the criteria above
+- Give detailed, constructive feedback that helps the student improve
+- Be specific about what works well and what needs improvement
+- Consider the difficulty level when scoring
+- Highlight both technical correctness and practical considerations
+- Suggest specific improvements with examples
+- If critical components are missing, mention them explicitly
+- If the design has major flaws, explain why and how to fix them
+
+Evaluate now:`;
+
+    try {
+        console.log('Starting AI evaluation for problem:', problemId);
+        
+        // 5. Call AI for evaluation
+        const result = await genAI.models.generateContent({
+            model: "gemini-2.0-flash-exp",
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: evaluationSchema,
+            },
+        });
+
+        const responseText = result?.text?.trim();
+        if (!responseText) {
+            throw new Error("AI evaluation response was empty. Please try again.");
+        }
+
+        const evaluationResult = JSON.parse(responseText);
+        console.log('Evaluation completed with score:', evaluationResult.score);
+
+        // 6. Validate evaluation result
+        if (typeof evaluationResult.score !== 'number' || 
+            evaluationResult.score < 0 || 
+            evaluationResult.score > 100) {
+            throw new Error("Invalid evaluation score received");
+        }
+
+        if (!evaluationResult.feedback || !evaluationResult.strengths || !evaluationResult.improvements) {
+            throw new Error("Incomplete evaluation result received");
+        }
+
+        // 7. Save submission to database
+        const submission = await prisma.submission.create({
+            data: {
+                userId: session.user.id,
+                problemId: problemId,
+                submittedDiagramData: diagramData,
+                evaluationResult: evaluationResult,
+            },
+        });
+
+        console.log('Submission saved successfully:', submission.id);
+
+        // 8. Return submission ID for redirect
+        return submission.id;
+
+    } catch (error: unknown) {
+        console.error("Error evaluating solution:", error);
+        
+        if (error instanceof Error) {
+            // Check for specific error types
+            if (error.message.includes('API key')) {
+                throw new Error('API configuration error. Please contact support.');
+            }
+            if (error.message.includes('quota') || error.message.includes('rate limit')) {
+                throw new Error('Service temporarily unavailable. Please try again in a few minutes.');
+            }
+            throw new Error(`Solution evaluation failed: ${error.message}`);
+        }
+        
+        throw new Error("An unexpected error occurred during evaluation. Please try again.");
+    }
+}
+
 // Define the schema using the Type enum
 const designSchema = {
     type: Type.OBJECT,

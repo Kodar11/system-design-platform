@@ -99,7 +99,7 @@ export default async function ProblemDetailPage({
             </div>
             
             <Link
-              href={`/problems/solve/${problem.id}`}
+              href={`/problems/${problem.id}/solve/`}
               className="inline-flex items-center px-8 py-4 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-bold text-lg rounded-xl hover:from-blue-700 hover:to-blue-800 transform hover:scale-105 transition-all shadow-lg hover:shadow-xl"
             >
               <svg className="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
