@@ -8,11 +8,11 @@ import ReactFlow, {
   addEdge,
   useReactFlow
 } from 'reactflow';
-import 'reactflow/dist/style.css';
 import { useDiagramStore } from '@/store/diagramStore';
 import  Lasso  from './Lasso';
 import  Eraser  from './Eraser';    
 import  RectangleTool  from './RectangleTool';
+import 'reactflow/dist/style.css';
 
 const nodeTypes = {
   // Add your custom node types here

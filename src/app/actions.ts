@@ -42,8 +42,11 @@ type JsonCompatible = { [key: string]: JsonCompatible } | string | number | bool
 // Use the new SDK
 import { GoogleGenAI, Type } from "@google/genai";
 
+
+
 // Use the namespace for the class name
 const genAI = new GoogleGenAI({ apiKey: process.env.GOOGLE_API_KEY || '' });
+
 
 // Define the schema using the Type enum
 const designSchema = {
