@@ -1,3 +1,4 @@
+// src/store/diagramStore.ts
 import { create } from 'zustand';
 import { temporal } from 'zundo';
 import {
@@ -13,21 +14,19 @@ import {
   XYPosition,
 } from 'reactflow';
 
-// Define a type for the temporal actions and history
 type TemporalActions = {
   undo: () => void;
   redo: () => void;
-  pastStates: any[]; // You can type this more specifically if needed
-  futureStates: any[]; // You can type this more specifically if needed
+  pastStates: any[]; 
+  futureStates: any[]; 
 };
 
-// Update the DiagramState interface to include the temporal object
 interface DiagramState {
   nodes: Node[];
   edges: Edge[];
   selectedNode: Node | null;
   reactFlowInstance: ReactFlowInstance | null;
-  activeTool: 'none' | 'lasso' | 'eraser' | 'rectangle';
+  activeTool: 'none' | 'lasso' | 'eraser' | 'rectangle' | 'text';
   
   onNodesChange: (changes: NodeChange[]) => void;
   onEdgesChange: (changes: EdgeChange[]) => void;
@@ -37,11 +36,12 @@ interface DiagramState {
   addNode: (node: Node) => void;
   setSelectedNode: (node: Node | null) => void;
   updateNodeProperties: (nodeId: string, data: any) => void;
+  setNodeType: (nodeId: string, nodeType: string) => void;
   deleteSelectedNodes: () => void;
   setReactFlowInstance: (instance: ReactFlowInstance) => void;
   groupSelectedNodes: () => void;
   ungroupSelectedNodes: () => void;
-  setActiveTool: (tool: 'none' | 'lasso' | 'eraser' | 'rectangle') => void;
+  setActiveTool: (tool: 'none' | 'lasso' | 'eraser' | 'rectangle' | 'text') => void;
   
   // The temporal object is now part of the store's state
   temporal?: TemporalActions; 
@@ -111,6 +111,14 @@ export const useDiagramStore = create<DiagramState>()(
         set({
           nodes: get().nodes.map(node =>
             node.id === nodeId ? { ...node, data: { ...node.data, ...data } } : node
+          ),
+        });
+      },
+
+      setNodeType: (nodeId: string, nodeType: string) => {
+        set({
+          nodes: get().nodes.map(node =>
+            node.id === nodeId ? { ...node, type: nodeType } : node
           ),
         });
       },
@@ -224,4 +232,4 @@ export const useDiagramStore = create<DiagramState>()(
       equality,
     }
   )
-);
+);  

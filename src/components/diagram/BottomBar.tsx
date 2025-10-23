@@ -8,6 +8,14 @@ export const BottomBar = () => {
   const groupSelectedNodes = useDiagramStore(state => state.groupSelectedNodes);
   const ungroupSelectedNodes = useDiagramStore(state => state.ungroupSelectedNodes);
   const setActiveTool = useDiagramStore(state => state.setActiveTool);
+  const setNodeType = useDiagramStore(state => state.setNodeType);
+
+  const toggleCompact = () => {
+    if (selectedNode) {
+      const newType = selectedNode.type === 'component' ? 'compact' : 'component';
+      setNodeType(selectedNode.id, newType);
+    }
+  };
 
   return (
     <div className="bottom-bar p-4 bg-gray-200 flex justify-center items-center gap-4">
@@ -20,13 +28,14 @@ export const BottomBar = () => {
       {/* Shapes */}
       <div className="flex gap-2">
         <button onClick={() => setActiveTool('rectangle')} className="p-2 rounded bg-gray-400 text-white">Rectangle</button>
-        <button className="p-2 rounded bg-gray-400 text-white">Text Box</button>
+        <button onClick={() => setActiveTool('text')} className="p-2 rounded bg-gray-400 text-white">Text Box</button>
       </div>
       
       {/* Grouping Tools */}
       <div className="flex gap-2">
         <button onClick={groupSelectedNodes} className="p-2 rounded bg-purple-500 text-white">Group</button>
         <button onClick={ungroupSelectedNodes} className="p-2 rounded bg-purple-500 text-white">Ungroup</button>
+        <button onClick={toggleCompact} className="p-2 rounded bg-orange-500 text-white" disabled={!selectedNode || selectedNode.type === 'text'}>Toggle Compact</button>
       </div>
       
       {/* New Tools */}
