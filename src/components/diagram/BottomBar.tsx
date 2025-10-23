@@ -8,21 +8,22 @@ export const BottomBar = () => {
   const groupSelectedNodes = useDiagramStore(state => state.groupSelectedNodes);
   const ungroupSelectedNodes = useDiagramStore(state => state.ungroupSelectedNodes);
   const setActiveTool = useDiagramStore(state => state.setActiveTool);
-  const setNodeType = useDiagramStore(state => state.setNodeType);
+  const setCurrentEdgeConfig = useDiagramStore(state => state.setCurrentEdgeConfig);
 
-  const toggleCompact = () => {
-    if (selectedNode) {
-      const newType = selectedNode.type === 'component' ? 'compact' : 'component';
-      setNodeType(selectedNode.id, newType);
-    }
+  const setSolidLine = () => {
+    setCurrentEdgeConfig({ type: 'default', animated: false, style: {} });
+  };
+
+  const setDashedLine = () => {
+    setCurrentEdgeConfig({ type: 'default', animated: false, style: { strokeDasharray: '5, 5' } });
   };
 
   return (
     <div className="bottom-bar p-4 bg-gray-200 flex justify-center items-center gap-4">
       {/* Connector Tools */}
       <div className="flex gap-2">
-        <button className="p-2 rounded bg-gray-400 text-white">Solid Line</button>
-        <button className="p-2 rounded bg-gray-400 text-white">Dashed Line</button>
+        <button onClick={setSolidLine} className="p-2 rounded bg-gray-400 text-white">Solid Line</button>
+        <button onClick={setDashedLine} className="p-2 rounded bg-gray-400 text-white">Dashed Line</button>
       </div>
 
       {/* Shapes */}
@@ -35,7 +36,6 @@ export const BottomBar = () => {
       <div className="flex gap-2">
         <button onClick={groupSelectedNodes} className="p-2 rounded bg-purple-500 text-white">Group</button>
         <button onClick={ungroupSelectedNodes} className="p-2 rounded bg-purple-500 text-white">Ungroup</button>
-        <button onClick={toggleCompact} className="p-2 rounded bg-orange-500 text-white" disabled={!selectedNode || selectedNode.type === 'text'}>Toggle Compact</button>
       </div>
       
       {/* New Tools */}

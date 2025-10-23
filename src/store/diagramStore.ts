@@ -21,12 +21,19 @@ type TemporalActions = {
   futureStates: any[]; 
 };
 
+interface EdgeConfig {
+  type: string;
+  animated: boolean;
+  style: React.CSSProperties;
+}
+
 interface DiagramState {
   nodes: Node[];
   edges: Edge[];
   selectedNode: Node | null;
   reactFlowInstance: ReactFlowInstance | null;
   activeTool: 'none' | 'lasso' | 'eraser' | 'rectangle' | 'text';
+  currentEdgeConfig: EdgeConfig;
   
   onNodesChange: (changes: NodeChange[]) => void;
   onEdgesChange: (changes: EdgeChange[]) => void;
@@ -36,12 +43,14 @@ interface DiagramState {
   addNode: (node: Node) => void;
   setSelectedNode: (node: Node | null) => void;
   updateNodeProperties: (nodeId: string, data: any) => void;
+  updateNode: (nodeId: string, updates: Partial<Node>) => void;
   setNodeType: (nodeId: string, nodeType: string) => void;
   deleteSelectedNodes: () => void;
   setReactFlowInstance: (instance: ReactFlowInstance) => void;
   groupSelectedNodes: () => void;
   ungroupSelectedNodes: () => void;
   setActiveTool: (tool: 'none' | 'lasso' | 'eraser' | 'rectangle' | 'text') => void;
+  setCurrentEdgeConfig: (config: EdgeConfig) => void;
   
   // The temporal object is now part of the store's state
   temporal?: TemporalActions; 
@@ -77,6 +86,7 @@ export const useDiagramStore = create<DiagramState>()(
       selectedNode: null,
       reactFlowInstance: null,
       activeTool: 'none',
+      currentEdgeConfig: { type: 'default', animated: false, style: {} },
 
       onNodesChange: (changes: NodeChange[]) => {
         set({
@@ -91,8 +101,15 @@ export const useDiagramStore = create<DiagramState>()(
       },
 
       onConnect: (connection: Connection) => {
+        const { currentEdgeConfig } = get();
+        const newEdge = {
+          ...connection,
+          type: currentEdgeConfig.type,
+          animated: currentEdgeConfig.animated,
+          style: currentEdgeConfig.style,
+        };
         set({
-          edges: addEdge(connection, get().edges),
+          edges: addEdge(newEdge, get().edges),
         });
       },
 
@@ -111,6 +128,14 @@ export const useDiagramStore = create<DiagramState>()(
         set({
           nodes: get().nodes.map(node =>
             node.id === nodeId ? { ...node, data: { ...node.data, ...data } } : node
+          ),
+        });
+      },
+
+      updateNode: (nodeId: string, updates: Partial<Node>) => {
+        set({
+          nodes: get().nodes.map(node =>
+            node.id === nodeId ? { ...node, ...updates } : node
           ),
         });
       },
@@ -226,6 +251,8 @@ export const useDiagramStore = create<DiagramState>()(
       },
 
       setActiveTool: (tool) => set({ activeTool: tool }),
+
+      setCurrentEdgeConfig: (config: EdgeConfig) => set({ currentEdgeConfig: config }),
     }),
     {
       partialize: (state) => ({ nodes: state.nodes, edges: state.edges }),
