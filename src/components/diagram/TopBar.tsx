@@ -43,20 +43,6 @@ export const TopBar = () => {
     }
   };
 
-  const handleExport = () => {
-    if (reactFlowInstance) {
-      const flow = reactFlowInstance.toObject();
-      const jsonString = JSON.stringify(flow, null, 2);
-      const blob = new Blob([jsonString], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'diagram.json';
-      a.click();
-      URL.revokeObjectURL(url);
-    }
-  };
-
   const handleFitView = () => reactFlowInstance?.fitView();
 
   const handleSubmit = async () => {
@@ -259,20 +245,16 @@ export const TopBar = () => {
   // === Normal mode toolbar ===
   return (
     <div className="top-bar p-4 bg-gray-200 flex justify-between items-center">
-      <div className="flex gap-2">
-        <button onClick={handleSave} className="p-2 rounded bg-blue-500 text-white hover:bg-blue-600 transition-colors">
-          Save
-        </button>
-        <button onClick={handleExport} className="p-2 rounded bg-green-500 text-white hover:bg-green-600 transition-colors">
-          Export
-        </button>
-      </div>
+      <div></div> {/* Empty placeholder to maintain layout */}
       <input
         type="text"
         placeholder="Diagram Title"
         className="p-2 rounded border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
       />
       <div className="flex gap-2">
+        <button onClick={handleSave} className="p-2 rounded bg-blue-500 text-white hover:bg-blue-600 transition-colors">
+          Save
+        </button>
         {sharedControls}
       </div>
     </div>
