@@ -195,7 +195,14 @@ export const useDiagramStore = create<DiagramState>()(
             id: groupId,
             type: 'group',
             position: groupPosition,
-            style: { width: groupWidth, height: groupHeight },
+            style: { 
+              width: groupWidth, 
+              height: groupHeight,
+              background: 'rgba(0, 0, 0, 0.05)', // FIXED: Very light background for visibility without obstruction
+              border: '1px dashed #999', // FIXED: Dashed border to indicate grouping without blocking
+              borderRadius: 4,
+              zIndex: 1, // FIXED: Low z-index to allow children to be on top
+            },
             data: { label: 'Group' },
           };
 
@@ -210,6 +217,7 @@ export const useDiagramStore = create<DiagramState>()(
                   y: node.position.y - groupPosition.y,
                 },
                 selected: false,
+                style: { ...node.style, zIndex: 2 }, // FIXED: Higher z-index for children to ensure visibility and clickability
               };
             }
             return node;
@@ -238,6 +246,7 @@ export const useDiagramStore = create<DiagramState>()(
                     x: node.position.x + groupPosition.x,
                     y: node.position.y + groupPosition.y,
                   },
+                  style: { ...node.style, zIndex: undefined }, // FIXED: Reset z-index on ungroup
                 };
               }
               return node;
