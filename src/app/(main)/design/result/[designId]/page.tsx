@@ -46,7 +46,7 @@ export default async function DesignResultPage({ params }: { params: { designId:
   if (!design || design.userId !== session.user.id) {
     notFound();
   }
-  //@ts-ignore
+  //@ts-expect-error - Prisma JSON field requires specific type casting
   const diagramData = design.diagramData as DiagramData;
 
   return (

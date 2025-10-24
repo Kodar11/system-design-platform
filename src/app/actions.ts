@@ -91,7 +91,7 @@ const evaluationSchema = {
  */
 export async function submitProblemSolution(
     problemId: string, 
-    diagramData: any
+    diagramData: { nodes?: unknown[]; edges?: unknown[] }
 ): Promise<string> {
     const session = await getServerSession(NEXT_AUTH_CONFIG);
     if (!session?.user?.id) {
@@ -113,28 +113,36 @@ export async function submitProblemSolution(
     }
 
     // 3. Extract meaningful information from the diagram
-    const componentSummary = diagramData.nodes?.map((node: any) => {
-        const componentName = node.data?.label || node.data?.componentId || 'Unknown Component';
-        const componentType = node.type || 'generic';
-        const metadata = node.data?.metadata || {};
+    const componentSummary = diagramData.nodes?.map((node: unknown) => {
+        const nodeData = node as { data?: { label?: string; componentId?: string; metadata?: Record<string, unknown> }; type?: string; position?: { x: number; y: number } };
+        const componentName = nodeData.data?.label || nodeData.data?.componentId || 'Unknown Component';
+        const componentType = nodeData.type || 'generic';
+        const metadata = nodeData.data?.metadata || {};
         
         return {
             name: componentName,
             type: componentType,
             metadata: metadata,
-            position: node.position
+            position: nodeData.position
         };
     }) || [];
 
-    const connectionSummary = diagramData.edges?.map((edge: any) => {
-        const sourceNode = diagramData.nodes?.find((n: any) => n.id === edge.source);
-        const targetNode = diagramData.nodes?.find((n: any) => n.id === edge.target);
+    const connectionSummary = diagramData.edges?.map((edge: unknown) => {
+        const edgeData = edge as { source: string; target: string; label?: string; type?: string; id: string };
+        const sourceNode = diagramData.nodes?.find((n: unknown) => {
+            const nodeData = n as { id: string };
+            return nodeData.id === edgeData.source;
+        });
+        const targetNode = diagramData.nodes?.find((n: unknown) => {
+            const nodeData = n as { id: string };
+            return nodeData.id === edgeData.target;
+        });
         
         return {
-            from: sourceNode?.data?.label || edge.source,
-            to: targetNode?.data?.label || edge.target,
-            type: edge.label || edge.type || 'connection',
-            id: edge.id
+            from: (sourceNode as { data?: { label?: string } })?.data?.label || edgeData.source,
+            to: (targetNode as { data?: { label?: string } })?.data?.label || edgeData.target,
+            type: edgeData.label || edgeData.type || 'connection',
+            id: edgeData.id
         };
     }) || [];
 
@@ -157,11 +165,11 @@ Total Components: ${componentSummary.length}
 Total Connections: ${connectionSummary.length}
 
 Components Used:
-${componentSummary.map((comp : any, idx : number) => `${idx + 1}. ${comp.name} (Type: ${comp.type})
+${componentSummary.map((comp: { name: string; type: string; metadata: Record<string, unknown> }, idx: number) => `${idx + 1}. ${comp.name} (Type: ${comp.type})
    Metadata: ${JSON.stringify(comp.metadata, null, 2)}`).join('\n')}
 
 Data Flow & Connections:
-${connectionSummary.map((conn : any, idx : number) => `${idx + 1}. ${conn.from} → ${conn.to} (${conn.type})`).join('\n')}
+${connectionSummary.map((conn: { from: string; to: string; type: string }, idx: number) => `${idx + 1}. ${conn.from} → ${conn.to} (${conn.type})`).join('\n')}
 
 Complete Diagram Structure:
 ${JSON.stringify({ components: componentSummary, connections: connectionSummary }, null, 2)}
@@ -518,7 +526,7 @@ export async function generateAndStoreOtp(email: string, newUserData?: TempUserD
             otp,
             expiresAt,
             resendCount,
-            //@ts-ignore
+            //@ts-expect-error - Prisma JSON field requires specific type casting
             tempUserData: userDataToStore as unknown as JsonCompatible, // Cast to JSON-compatible type
         },
         create: {
@@ -526,7 +534,7 @@ export async function generateAndStoreOtp(email: string, newUserData?: TempUserD
             otp,
             expiresAt,
             resendCount,
-            //@ts-ignore
+            //@ts-expect-error - Prisma JSON field requires specific type casting
             tempUserData: userDataToStore as unknown as JsonCompatible, // Cast to JSON-compatible type
         },
     });
@@ -579,7 +587,7 @@ export async function createUserAfterOtp(email: string, otp: string) {
         throw new Error("Invalid or expired OTP.");
     }
     
-    //@ts-ignore 
+    //@ts-expect-error - Prisma JSON field requires specific type casting
     const tempUserData = storedOtp.tempUserData as TempUserData; // Cast retrieved JSON to TempUserData
     const { username, password, role } = tempUserData;
 

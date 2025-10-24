@@ -18,8 +18,8 @@ import {
 type TemporalActions = {
   undo: () => void;
   redo: () => void;
-  pastStates: any[]; 
-  futureStates: any[]; 
+  pastStates: unknown[]; 
+  futureStates: unknown[]; 
 };
 
 interface EdgeConfig {
@@ -43,7 +43,7 @@ interface DiagramState {
   setEdges: (edges: Edge[]) => void;
   addNode: (node: Node) => void;
   setSelectedNode: (node: Node | null) => void;
-  updateNodeProperties: (nodeId: string, data: any) => void;
+  updateNodeProperties: (nodeId: string, data: Record<string, unknown>) => void;
   updateNode: (nodeId: string, updates: Partial<Node>) => void;
   setNodeType: (nodeId: string, nodeType: string) => void;
   deleteSelectedNodes: () => void;
