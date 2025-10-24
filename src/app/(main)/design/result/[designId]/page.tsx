@@ -29,7 +29,8 @@ interface DiagramData {
   total_estimated_cost_per_month: number;
 }
 
-export default async function DesignResultPage({ params }: { params: { designId: string } }) {
+export default async function DesignResultPage({ params }: { params: Promise<{ designId: string }> }) {
+  const { designId } = await params;
   const session = await getServerSession(NEXT_AUTH_CONFIG);
   
   if (!session) {
@@ -38,7 +39,7 @@ export default async function DesignResultPage({ params }: { params: { designId:
 
   const design = await prisma.design.findUnique({
     where: { 
-      id: params.designId,
+      id: designId,
       isDeleted: false,
     },
   });

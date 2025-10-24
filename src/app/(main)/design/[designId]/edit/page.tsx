@@ -8,7 +8,10 @@ import FlowProvider from '@/components/diagram/FlowProvider';
 import { prisma } from '@/lib/prisma/userService';
 import { Editor } from '@/components/diagram/Editor';
 
-export default async function EditorPage({ params }: { params: { designId: string } }) {
+export default async function EditorPage({ params }: { params: Promise<{ designId: string }> }) {
+  const { designId: _designId } = await params;
+  console.log("Design_id : ",_designId);
+  
   const components = await prisma.component.findMany({
     orderBy: { name: "asc" },
   });

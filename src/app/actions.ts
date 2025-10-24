@@ -8,6 +8,7 @@ import { redirect } from "next/navigation";
 import { NEXT_AUTH_CONFIG } from "@/lib/nextAuthConfig";
 import Razorpay from "razorpay";
 import { getServerSession } from "next-auth";
+import { Prisma } from "@prisma/client";
 
 interface RazorpaySubscription {
   id: string;
@@ -82,6 +83,34 @@ const evaluationSchema = {
     },
     required: ["score", "feedback", "strengths", "improvements", "component_analysis", "scalability_assessment"]
 };
+// Add this interface at the top of your actions.ts file
+interface NodeData {
+    id: string;
+    type?: string;
+    position?: { x: number; y: number };
+    data?: {
+        label?: string;
+        componentId?: string;
+        metadata?: Record<string, unknown>;
+    };
+}
+
+interface EdgeData {
+    id: string;
+    source: string;
+    target: string;
+    label?: string;
+    type?: string;
+    sourceHandle?: string | null;
+    targetHandle?: string | null;
+    animated?: boolean;
+    style?: React.CSSProperties;
+}
+
+interface DiagramData {
+    nodes?: NodeData[];
+    edges?: EdgeData[];
+}
 
 /**
  * Submits a problem solution and evaluates it using AI
@@ -91,7 +120,7 @@ const evaluationSchema = {
  */
 export async function submitProblemSolution(
     problemId: string, 
-    diagramData: { nodes?: unknown[]; edges?: unknown[] }
+    diagramData: DiagramData
 ): Promise<string> {
     const session = await getServerSession(NEXT_AUTH_CONFIG);
     if (!session?.user?.id) {
@@ -113,36 +142,28 @@ export async function submitProblemSolution(
     }
 
     // 3. Extract meaningful information from the diagram
-    const componentSummary = diagramData.nodes?.map((node: unknown) => {
-        const nodeData = node as { data?: { label?: string; componentId?: string; metadata?: Record<string, unknown> }; type?: string; position?: { x: number; y: number } };
-        const componentName = nodeData.data?.label || nodeData.data?.componentId || 'Unknown Component';
-        const componentType = nodeData.type || 'generic';
-        const metadata = nodeData.data?.metadata || {};
+    const componentSummary = diagramData.nodes?.map((node) => {
+        const componentName = node.data?.label || node.data?.componentId || 'Unknown Component';
+        const componentType = node.type || 'generic';
+        const metadata = node.data?.metadata || {};
         
         return {
             name: componentName,
             type: componentType,
             metadata: metadata,
-            position: nodeData.position
+            position: node.position
         };
     }) || [];
 
-    const connectionSummary = diagramData.edges?.map((edge: unknown) => {
-        const edgeData = edge as { source: string; target: string; label?: string; type?: string; id: string };
-        const sourceNode = diagramData.nodes?.find((n: unknown) => {
-            const nodeData = n as { id: string };
-            return nodeData.id === edgeData.source;
-        });
-        const targetNode = diagramData.nodes?.find((n: unknown) => {
-            const nodeData = n as { id: string };
-            return nodeData.id === edgeData.target;
-        });
+    const connectionSummary = diagramData.edges?.map((edge) => {
+        const sourceNode = diagramData.nodes?.find((n) => n.id === edge.source);
+        const targetNode = diagramData.nodes?.find((n) => n.id === edge.target);
         
         return {
-            from: (sourceNode as { data?: { label?: string } })?.data?.label || edgeData.source,
-            to: (targetNode as { data?: { label?: string } })?.data?.label || edgeData.target,
-            type: edgeData.label || edgeData.type || 'connection',
-            id: edgeData.id
+            from: sourceNode?.data?.label || edge.source,
+            to: targetNode?.data?.label || edge.target,
+            type: edge.label || edge.type || 'connection',
+            id: edge.id
         };
     }) || [];
 
@@ -165,11 +186,11 @@ Total Components: ${componentSummary.length}
 Total Connections: ${connectionSummary.length}
 
 Components Used:
-${componentSummary.map((comp: { name: string; type: string; metadata: Record<string, unknown> }, idx: number) => `${idx + 1}. ${comp.name} (Type: ${comp.type})
+${componentSummary.map((comp, idx) => `${idx + 1}. ${comp.name} (Type: ${comp.type})
    Metadata: ${JSON.stringify(comp.metadata, null, 2)}`).join('\n')}
 
 Data Flow & Connections:
-${connectionSummary.map((conn: { from: string; to: string; type: string }, idx: number) => `${idx + 1}. ${conn.from} → ${conn.to} (${conn.type})`).join('\n')}
+${connectionSummary.map((conn, idx) => `${idx + 1}. ${conn.from} → ${conn.to} (${conn.type})`).join('\n')}
 
 Complete Diagram Structure:
 ${JSON.stringify({ components: componentSummary, connections: connectionSummary }, null, 2)}
@@ -253,13 +274,13 @@ Evaluate now:`;
             throw new Error("Incomplete evaluation result received");
         }
 
-        // 7. Save submission to database
+        // 7. Save submission to database - Cast to Prisma's InputJsonValue
         const submission = await prisma.submission.create({
             data: {
                 userId: session.user.id,
                 problemId: problemId,
-                submittedDiagramData: diagramData,
-                evaluationResult: evaluationResult,
+                submittedDiagramData: diagramData as Prisma.InputJsonValue,
+                evaluationResult: evaluationResult as Prisma.InputJsonValue,
             },
         });
 

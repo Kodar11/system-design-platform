@@ -6,18 +6,6 @@ import { prisma } from '@/lib/prisma/userService';
 import { redirect } from 'next/navigation';
 import ThemeToggle from '@/components/ui/ThemeToggle';
 
-interface Design {
-  id: string;
-  name: string;
-  createdAt: Date;
-  diagramData: {
-    components?: Array<{
-      id: string;
-    }>;
-    total_estimated_cost_per_month?: number;
-  };
-}
-
 export default async function DesignListPage() {
   const session = await getServerSession(NEXT_AUTH_CONFIG);
   

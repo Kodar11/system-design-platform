@@ -7,11 +7,12 @@ import { redirect } from 'next/navigation';
 import { notFound } from 'next/navigation';
 import ThemeToggle from '@/components/ui/ThemeToggle';
 
-export default async function SubmissionResultPage({ 
-  params 
-}: { 
-  params: { submissionId: string } 
-}) {
+interface PageProps {
+  params: Promise<{ submissionId: string }>;
+}
+
+export default async function SubmissionResultPage({ params }: PageProps) {
+  const { submissionId } = await params;
   const session = await getServerSession(NEXT_AUTH_CONFIG);
   
   if (!session?.user?.id) {
@@ -20,7 +21,7 @@ export default async function SubmissionResultPage({
 
   const submission = await prisma.submission.findUnique({
     where: { 
-      id: params.submissionId,
+      id: submissionId,
       userId: session.user.id // Ensure user can only view their own submissions
     },
     include: {

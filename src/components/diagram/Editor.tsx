@@ -5,10 +5,7 @@ import React, { useCallback, useRef, useState, MouseEvent as ReactMouseEvent, us
 import ReactFlow, {
   Controls,
   Background,
-  ReactFlowProvider,
-  addEdge,
   useReactFlow,
-  ConnectionLineType,
   Node,
   MiniMap,
   Edge,
@@ -247,11 +244,11 @@ export const Editor = () => {
   }, [activeTool, reactFlowInstance, addNode, setActiveTool]);
 
   // Custom connection validator to allow connections between any different nodes
-  const isValidConnectionCustom = useCallback((connection: any) => {
-    return connection.source !== connection.target;
+  const isValidConnectionCustom = useCallback((connection: { source: string | null; target: string | null }) => {
+    return connection.source !== connection.target && connection.source !== null && connection.target !== null;
   }, []);
 
-  const onNodeDrag = useCallback((event: any, node: Node) => {
+  const onNodeDrag = useCallback((event: ReactMouseEvent, node: Node) => {
     const allNodes = getNodes();
     const vertical: number[] = [];
     const horizontal: number[] = [];

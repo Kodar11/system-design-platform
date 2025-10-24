@@ -75,7 +75,8 @@ export const TopBar = () => {
         target: edge.target,
         sourceHandle: edge.sourceHandle,
         targetHandle: edge.targetHandle,
-        label: edge.label,
+        // Convert ReactNode label to string
+        label: typeof edge.label === 'string' ? edge.label : edge.label?.toString() || undefined,
         type: edge.type,
         animated: edge.animated,
         style: edge.style,

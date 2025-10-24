@@ -10,8 +10,9 @@ import ThemeToggle from '@/components/ui/ThemeToggle';
 export default async function ProblemDetailPage({ 
   params 
 }: { 
-  params: { problemId: string } 
+  params: Promise<{ problemId: string }> 
 }) {
+  const { problemId } = await params;
   const session = await getServerSession(NEXT_AUTH_CONFIG);
   
   if (!session?.user?.id) {
@@ -20,7 +21,7 @@ export default async function ProblemDetailPage({
 
   const problem = await prisma.problem.findUnique({
     where: { 
-      id: params.problemId,
+      id: problemId,
       isDeleted: false 
     },
     include: {

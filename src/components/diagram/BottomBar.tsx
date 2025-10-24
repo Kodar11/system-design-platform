@@ -5,7 +5,6 @@ import React, { useCallback } from 'react';
 import { useDiagramStore } from '@/store/diagramStore';
 import { useReactFlow } from 'reactflow';
 import { toPng } from 'html-to-image'; // NEW: Import from html-to-image (install via: npm install html-to-image)
-import { ConnectionLineType } from 'reactflow';
 
 export const BottomBar = () => {
   const reactFlowInstance = useReactFlow();
@@ -98,7 +97,7 @@ export const BottomBar = () => {
           reactFlowInstance.setViewport(flow.viewport ?? { x: 0, y: 0, zoom: 1 });
           alert('Diagram imported successfully!');
         } catch (error) {
-          alert('Invalid JSON file!');
+          alert(`Invalid JSON file! ${error}`);
         }
       };
       reader.readAsText(file);

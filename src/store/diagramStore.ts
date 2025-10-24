@@ -131,7 +131,7 @@ export const useDiagramStore = create<DiagramState>()(
         set({ selectedNode: node });
       },
 
-      updateNodeProperties: (nodeId: string, data: any) => {
+      updateNodeProperties: (nodeId: string, data: Record<string, unknown>) => {
         set({
           nodes: get().nodes.map(node =>
             node.id === nodeId ? { ...node, data: { ...node.data, ...data } } : node

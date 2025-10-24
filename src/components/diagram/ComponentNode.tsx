@@ -3,6 +3,7 @@
 
 import React from 'react';
 import { Handle, Position, NodeProps } from 'reactflow';
+import Image from 'next/image';
 
 const ComponentNode = ({ data, selected }: NodeProps) => {
   return (
@@ -26,7 +27,7 @@ const ComponentNode = ({ data, selected }: NodeProps) => {
       
       {/* Content */}
       <div className="flex flex-col items-center">
-        <img src={data.iconUrl || '/assets/icons/default.svg'} alt={data.label} className="w-8 h-8 mb-1" />
+        <Image src={data.iconUrl || '/assets/icons/default.svg'} alt={data.label} width={32} height={32} className="mb-1" />
         <span className="text-sm font-medium text-gray-800 text-center break-words max-w-[80px]">{data.label}</span>
       </div>
 

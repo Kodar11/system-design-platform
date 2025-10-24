@@ -2,6 +2,7 @@
 "use client";
 
 import React from "react";
+import Image from "next/image";
 
 interface Component {
   id: string;
@@ -9,7 +10,7 @@ interface Component {
   type: string;
   iconUrl: string | null;
   documentationUrl?: string | null;
-  metadata: any;
+  metadata: unknown;
 }
 
 interface ComponentPaletteProps {
@@ -17,7 +18,7 @@ interface ComponentPaletteProps {
 }
 
 export default function ComponentPalette({ components }: ComponentPaletteProps) {
-  const onDragStart = (event: React.DragEvent, nodeType: string, originalType: string, componentId: string, componentName: string, metadata: any, iconUrl: string | null) => {
+  const onDragStart = (event: React.DragEvent, nodeType: string, originalType: string, componentId: string, componentName: string, metadata: unknown, iconUrl: string | null) => {
     event.dataTransfer.setData("application/reactflow", JSON.stringify({ nodeType, originalType, componentId, componentName, metadata, iconUrl: iconUrl || `/assets/icons/${originalType}.svg` }));
     event.dataTransfer.effectAllowed = "move";
     console.log("onDragStart - Dragging component with metadata:", metadata);
@@ -33,7 +34,7 @@ export default function ComponentPalette({ components }: ComponentPaletteProps) 
           onDragStart={(event) => onDragStart(event, 'component', comp.type, comp.id, comp.name, comp.metadata, comp.iconUrl)}
           draggable
         >
-          <img src={comp.iconUrl || "/assets/icons/default.svg"} alt={comp.name} className="w-6 h-6" />
+          <Image src={comp.iconUrl || "/assets/icons/default.svg"} alt={comp.name} width={24} height={24} />
           <span>{comp.name}</span>
         </div>
       ))}
