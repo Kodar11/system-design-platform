@@ -5,6 +5,7 @@ import { getServerSession } from 'next-auth';
 import { NEXT_AUTH_CONFIG } from '@/lib/nextAuthConfig';
 import { redirect } from 'next/navigation';
 import { notFound } from 'next/navigation';
+import ThemeToggle from '@/components/ui/ThemeToggle';
 
 export default async function ProblemDetailPage({ 
   params 
@@ -50,103 +51,101 @@ export default async function ProblemDetailPage({
 
   const getDifficultyColor = (difficulty: string) => {
     switch (difficulty) {
-      case 'EASY': return 'bg-green-100 text-green-800 border-green-200';
-      case 'MEDIUM': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'HARD': return 'bg-red-100 text-red-800 border-red-200';
-      default: return 'bg-gray-100 text-gray-800 border-gray-200';
+      case 'EASY': return 'bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-200 border-green-200 dark:border-green-800/50';
+      case 'MEDIUM': return 'bg-yellow-100 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-200 border-yellow-200 dark:border-yellow-800/50';
+      case 'HARD': return 'bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-200 border-red-200 dark:border-red-800/50';
+      default: return 'bg-gray-100 dark:bg-gray-900/20 text-gray-800 dark:text-gray-200 border-gray-200 dark:border-gray-800/50';
     }
   };
 
   const getScoreColor = (score: number) => {
-    if (score >= 80) return 'bg-green-100 text-green-800';
-    if (score >= 60) return 'bg-yellow-100 text-yellow-800';
-    return 'bg-red-100 text-red-800';
+    if (score >= 80) return 'bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-200';
+    if (score >= 60) return 'bg-yellow-100 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-200';
+    return 'bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-200';
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50">
+    <div className="min-h-screen bg-gradient-to-br from-background to-secondary/20">
       {/* Header Section */}
-      <div className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-6xl mx-auto px-8 py-6">
-          <Link 
-            href="/problems" 
-            className="inline-flex items-center text-blue-600 hover:text-blue-700 font-medium mb-4 transition-colors"
-          >
-            <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-            Back to All Problems
-          </Link>
+      <header className="bg-card shadow-sm border-b border-border flex justify-between items-center px-8 py-4">
+        <Link 
+          href="/problems" 
+          className="inline-flex items-center text-primary hover:text-primary/80 font-medium transition-colors"
+        >
+          <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+          Back to All Problems
+        </Link>
+        <ThemeToggle />
+      </header>
 
-          <div className="flex items-start justify-between">
-            <div className="flex-1">
-              <h1 className="text-4xl font-bold text-gray-900 mb-3">
-                {problem.title}
-              </h1>
-              <div className="flex items-center gap-4">
-                <span className={`inline-flex items-center px-4 py-2 rounded-lg text-sm font-semibold border ${getDifficultyColor(problem.difficulty)}`}>
-                  <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clipRule="evenodd" />
-                  </svg>
-                  {problem.difficulty}
-                </span>
-                {problem.submissions.length > 0 && (
-                  <span className="text-sm text-gray-600 bg-gray-100 px-3 py-2 rounded-lg">
-                    {problem.submissions.length} {problem.submissions.length === 1 ? 'attempt' : 'attempts'}
-                  </span>
-                )}
-              </div>
-            </div>
-            
-            <Link
-              href={`/problems/${problem.id}/solve/`}
-              className="inline-flex items-center px-8 py-4 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-bold text-lg rounded-xl hover:from-blue-700 hover:to-blue-800 transform hover:scale-105 transition-all shadow-lg hover:shadow-xl"
-            >
-              <svg className="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              Start Solving
-            </Link>
-          </div>
-        </div>
-      </div>
-
-      {/* Main Content */}
       <div className="max-w-6xl mx-auto px-8 py-8">
+        <div className="flex items-start justify-between mb-8">
+          <div className="flex-1">
+            <h1 className="text-4xl font-bold text-foreground mb-3">
+              {problem.title}
+            </h1>
+            <div className="flex items-center gap-4">
+              <span className={`inline-flex items-center px-4 py-2 rounded-lg text-sm font-semibold border ${getDifficultyColor(problem.difficulty)}`}>
+                <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clipRule="evenodd" />
+                </svg>
+                {problem.difficulty}
+              </span>
+              {problem.submissions.length > 0 && (
+                <span className="text-sm text-muted-foreground bg-muted px-3 py-2 rounded-lg">
+                  {problem.submissions.length} {problem.submissions.length === 1 ? 'attempt' : 'attempts'}
+                </span>
+              )}
+            </div>
+          </div>
+          
+          <Link
+            href={`/problems/${problem.id}/solve/`}
+            className="inline-flex items-center px-8 py-4 bg-gradient-to-r from-primary to-primary/80 text-primary-foreground font-bold text-lg rounded-xl hover:from-primary/90 hover:to-primary/70 transform hover:scale-105 transition-all shadow-lg hover:shadow-xl"
+          >
+            <svg className="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Start Solving
+          </Link>
+        </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Left Column - Problem Details */}
           <div className="lg:col-span-2 space-y-6">
             {/* Description */}
             {requirements.description && (
-              <div className="bg-white rounded-xl shadow-md p-6 border border-gray-200">
+              <div className="bg-card rounded-xl shadow-md p-6 border border-border">
                 <div className="flex items-center mb-4">
-                  <div className="p-2 bg-blue-100 rounded-lg mr-3">
-                    <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="p-2 bg-primary/10 dark:bg-primary/20 rounded-lg mr-3">
+                    <svg className="w-6 h-6 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                   </div>
-                  <h2 className="text-2xl font-bold text-gray-900">Problem Description</h2>
+                  <h2 className="text-2xl font-bold text-foreground">Problem Description</h2>
                 </div>
-                <p className="text-gray-700 leading-relaxed text-lg">{requirements.description}</p>
+                <p className="text-muted-foreground leading-relaxed text-lg">{requirements.description}</p>
               </div>
             )}
 
             {/* Functional Requirements */}
             {requirements.functional_requirements && requirements.functional_requirements.length > 0 && (
-              <div className="bg-white rounded-xl shadow-md p-6 border border-gray-200">
+              <div className="bg-card rounded-xl shadow-md p-6 border border-border">
                 <div className="flex items-center mb-4">
-                  <div className="p-2 bg-green-100 rounded-lg mr-3">
-                    <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="p-2 bg-green-100 dark:bg-green-900/20 rounded-lg mr-3">
+                    <svg className="w-6 h-6 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                   </div>
-                  <h2 className="text-2xl font-bold text-gray-900">Functional Requirements</h2>
+                  <h2 className="text-2xl font-bold text-foreground">Functional Requirements</h2>
                 </div>
                 <ul className="space-y-3">
                   {requirements.functional_requirements.map((req, idx) => (
-                    <li key={idx} className="flex items-start text-gray-700">
-                      <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-green-100 text-green-700 font-semibold text-sm mr-3 flex-shrink-0 mt-0.5">
+                    <li key={idx} className="flex items-start text-muted-foreground">
+                      <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-300 font-semibold text-sm mr-3 flex-shrink-0 mt-0.5">
                         {idx + 1}
                       </span>
                       <span className="text-base">{req}</span>
@@ -158,19 +157,19 @@ export default async function ProblemDetailPage({
 
             {/* Non-Functional Requirements */}
             {requirements.non_functional_requirements && requirements.non_functional_requirements.length > 0 && (
-              <div className="bg-white rounded-xl shadow-md p-6 border border-gray-200">
+              <div className="bg-card rounded-xl shadow-md p-6 border border-border">
                 <div className="flex items-center mb-4">
-                  <div className="p-2 bg-purple-100 rounded-lg mr-3">
-                    <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="p-2 bg-purple-100 dark:bg-purple-900/20 rounded-lg mr-3">
+                    <svg className="w-6 h-6 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                     </svg>
                   </div>
-                  <h2 className="text-2xl font-bold text-gray-900">Non-Functional Requirements</h2>
+                  <h2 className="text-2xl font-bold text-foreground">Non-Functional Requirements</h2>
                 </div>
                 <ul className="space-y-3">
                   {requirements.non_functional_requirements.map((req, idx) => (
-                    <li key={idx} className="flex items-start text-gray-700">
-                      <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-purple-100 text-purple-700 font-semibold text-sm mr-3 flex-shrink-0 mt-0.5">
+                    <li key={idx} className="flex items-start text-muted-foreground">
+                      <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-purple-100 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 font-semibold text-sm mr-3 flex-shrink-0 mt-0.5">
                         {idx + 1}
                       </span>
                       <span className="text-base">{req}</span>
@@ -182,36 +181,36 @@ export default async function ProblemDetailPage({
 
             {/* Scale Requirements */}
             {requirements.scale && (
-              <div className="bg-white rounded-xl shadow-md p-6 border border-gray-200">
+              <div className="bg-card rounded-xl shadow-md p-6 border border-border">
                 <div className="flex items-center mb-4">
-                  <div className="p-2 bg-indigo-100 rounded-lg mr-3">
-                    <svg className="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="p-2 bg-indigo-100 dark:bg-indigo-900/20 rounded-lg mr-3">
+                    <svg className="w-6 h-6 text-indigo-600 dark:text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
                     </svg>
                   </div>
-                  <h2 className="text-2xl font-bold text-gray-900">Expected Scale</h2>
+                  <h2 className="text-2xl font-bold text-foreground">Expected Scale</h2>
                 </div>
-                <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
-                  <p className="text-gray-700 font-medium text-base">{requirements.scale}</p>
+                <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800/50 rounded-lg p-4">
+                  <p className="text-muted-foreground font-medium text-base">{requirements.scale}</p>
                 </div>
               </div>
             )}
 
             {/* Constraints */}
             {requirements.constraints && requirements.constraints.length > 0 && (
-              <div className="bg-white rounded-xl shadow-md p-6 border border-gray-200">
+              <div className="bg-card rounded-xl shadow-md p-6 border border-border">
                 <div className="flex items-center mb-4">
-                  <div className="p-2 bg-orange-100 rounded-lg mr-3">
-                    <svg className="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="p-2 bg-orange-100 dark:bg-orange-900/20 rounded-lg mr-3">
+                    <svg className="w-6 h-6 text-orange-600 dark:text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                     </svg>
                   </div>
-                  <h2 className="text-2xl font-bold text-gray-900">Constraints</h2>
+                  <h2 className="text-2xl font-bold text-foreground">Constraints</h2>
                 </div>
                 <ul className="space-y-3">
                   {requirements.constraints.map((constraint, idx) => (
-                    <li key={idx} className="flex items-start text-gray-700">
-                      <svg className="w-5 h-5 text-orange-500 mr-3 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                    <li key={idx} className="flex items-start text-muted-foreground">
+                      <svg className="w-5 h-5 text-orange-500 dark:text-orange-400 mr-3 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
                         <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                       </svg>
                       <span className="text-base">{constraint}</span>
@@ -225,14 +224,14 @@ export default async function ProblemDetailPage({
           {/* Right Column - Action Card & Previous Submissions */}
           <div className="space-y-6">
             {/* Quick Action Card */}
-            <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl shadow-lg p-6 text-white sticky top-8">
+            <div className="bg-gradient-to-br from-primary to-primary/80 rounded-xl shadow-lg p-6 text-primary-foreground sticky top-8">
               <h3 className="text-2xl font-bold mb-4">Ready to Solve?</h3>
-              <p className="text-blue-100 mb-6 text-sm leading-relaxed">
+              <p className="text-primary-foreground/80 mb-6 text-sm leading-relaxed">
                 Design your system architecture using our interactive diagram editor. Get instant AI-powered feedback on your solution.
               </p>
               <Link
-                href={`/problems/solve/${problem.id}`}
-                className="block w-full text-center px-6 py-4 bg-white text-blue-700 font-bold rounded-lg hover:bg-blue-50 transition-all shadow-md hover:shadow-lg transform hover:scale-105"
+                href={`/problems/${problem.id}/solve`}
+                className="block w-full text-center px-6 py-4 bg-primary-foreground text-primary font-bold rounded-lg hover:bg-accent transition-all shadow-md hover:shadow-lg transform hover:scale-105"
               >
                 Start Solving Now
                 <svg className="w-5 h-5 inline ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -240,13 +239,13 @@ export default async function ProblemDetailPage({
                 </svg>
               </Link>
               
-              <div className="mt-6 pt-6 border-t border-blue-500">
+              <div className="mt-6 pt-6 border-t border-primary-foreground/20">
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-blue-200">Difficulty:</span>
+                  <span className="text-primary-foreground/80">Difficulty:</span>
                   <span className="font-semibold">{problem.difficulty}</span>
                 </div>
                 <div className="flex items-center justify-between text-sm mt-2">
-                  <span className="text-blue-200">Your Attempts:</span>
+                  <span className="text-primary-foreground/80">Your Attempts:</span>
                   <span className="font-semibold">{problem.submissions.length}</span>
                 </div>
               </div>
@@ -254,9 +253,9 @@ export default async function ProblemDetailPage({
 
             {/* Previous Submissions */}
             {problem.submissions.length > 0 && (
-              <div className="bg-white rounded-xl shadow-md p-6 border border-gray-200">
-                <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center">
-                  <svg className="w-5 h-5 mr-2 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="bg-card rounded-xl shadow-md p-6 border border-border">
+                <h3 className="text-xl font-bold text-foreground mb-4 flex items-center">
+                  <svg className="w-5 h-5 mr-2 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                   Recent Attempts
@@ -269,10 +268,10 @@ export default async function ProblemDetailPage({
                       <Link
                         key={submission.id}
                         href={`/problems/result/${submission.id}`}
-                        className="block border border-gray-200 rounded-lg p-4 hover:border-blue-300 hover:shadow-md transition-all"
+                        className="block border border-border rounded-lg p-4 hover:border-primary/50 hover:shadow-md transition-all"
                       >
                         <div className="flex items-center justify-between mb-2">
-                          <span className="text-sm text-gray-500">
+                          <span className="text-sm text-muted-foreground">
                             {new Date(submission.createdAt).toLocaleDateString('en-US', { 
                               month: 'short', 
                               day: 'numeric',
@@ -285,7 +284,7 @@ export default async function ProblemDetailPage({
                             </span>
                           )}
                         </div>
-                        <div className="text-xs text-gray-400">
+                        <div className="text-xs text-muted-foreground">
                           {new Date(submission.createdAt).toLocaleTimeString('en-US', { 
                             hour: '2-digit', 
                             minute: '2-digit'
@@ -298,7 +297,7 @@ export default async function ProblemDetailPage({
                 
                 <Link
                   href="/problems"
-                  className="block mt-4 text-center text-sm text-blue-600 hover:text-blue-700 font-medium"
+                  className="block mt-4 text-center text-sm text-primary hover:text-primary/80 font-medium"
                 >
                   View All Problems →
                 </Link>

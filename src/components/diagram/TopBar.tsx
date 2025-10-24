@@ -7,6 +7,7 @@ import { useReactFlow } from 'reactflow';
 import { useRouter, usePathname } from 'next/navigation';
 import { submitProblemSolution } from '@/app/actions';
 import Link from 'next/link';
+import ThemeToggle from '@/components/ui/ThemeToggle';
 
 export const TopBar = () => {
   const { nodes, edges } = useDiagramStore();
@@ -118,7 +119,7 @@ export const TopBar = () => {
     <>
       <button
         onClick={() => undo()}
-        className="p-2 rounded bg-gray-200 text-gray-700 hover:bg-gray-300 disabled:opacity-50 transition-colors"
+        className="p-2 rounded bg-muted text-muted-foreground hover:bg-accent transition-colors disabled:opacity-50"
         disabled={pastStates.length === 0}
         title="Undo (Ctrl+Z)"
       >
@@ -126,7 +127,7 @@ export const TopBar = () => {
       </button>
       <button
         onClick={() => redo()}
-        className="p-2 rounded bg-gray-200 text-gray-700 hover:bg-gray-300 disabled:opacity-50 transition-colors"
+        className="p-2 rounded bg-muted text-muted-foreground hover:bg-accent disabled:opacity-50 transition-colors"
         disabled={futureStates.length === 0}
         title="Redo (Ctrl+Y / Ctrl+Shift+Z)"
       >
@@ -134,7 +135,7 @@ export const TopBar = () => {
       </button>
       <button
         onClick={handleFitView}
-        className="p-2 rounded bg-gray-200 text-gray-700 hover:bg-gray-300 transition-colors"
+        className="p-2 rounded bg-muted text-muted-foreground hover:bg-accent transition-colors"
         title="Fit View"
       >
         ⤢
@@ -143,7 +144,7 @@ export const TopBar = () => {
       <button
         onClick={handleZoomToSelection}
         disabled={!hasSelection}
-        className="p-2 rounded bg-gray-200 text-gray-700 hover:bg-gray-300 disabled:opacity-50 transition-colors"
+        className="p-2 rounded bg-muted text-muted-foreground hover:bg-accent disabled:opacity-50 transition-colors"
         title="Zoom to Selection"
       >
         🔍
@@ -153,29 +154,29 @@ export const TopBar = () => {
 
   if (problemMode) {
     return (
-      <div className="top-bar p-4 bg-white border-b border-gray-300 flex justify-between items-center shadow-sm">
+      <div className="top-bar p-4 bg-card border-b border-border flex justify-between items-center shadow-sm">
         <div className="flex items-center gap-4">
           <Link
             href="/problems"
-            className="p-2 rounded hover:bg-gray-100 transition-colors"
+            className="p-2 rounded hover:bg-accent transition-colors"
             title="Back to Problems"
           >
-            <svg className="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-6 h-6 text-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
           </Link>
           <div>
-            <h1 className="text-lg font-semibold text-gray-900">
+            <h1 className="text-lg font-semibold text-foreground">
               Problem: {problemId}
             </h1>
-            <p className="text-xs text-gray-500">Design your solution using the diagram editor</p>
+            <p className="text-xs text-muted-foreground">Design your solution using the diagram editor</p>
           </div>
         </div>
 
         <div className="flex items-center gap-3">
           {/* Stats */}
-          <div className="flex items-center gap-2 px-3 py-2 bg-gray-100 rounded-lg">
-            <div className="flex items-center gap-1 text-sm text-gray-700">
+          <div className="flex items-center gap-2 px-3 py-2 bg-muted rounded-lg">
+            <div className="flex items-center gap-1 text-sm text-foreground">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
                   strokeLinecap="round"
@@ -186,8 +187,8 @@ export const TopBar = () => {
               </svg>
               <span className="font-medium">{nodes.length}</span>
             </div>
-            <span className="text-gray-400">|</span>
-            <div className="flex items-center gap-1 text-sm text-gray-700">
+            <span className="text-muted-foreground">|</span>
+            <div className="flex items-center gap-1 text-sm text-foreground">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
                   strokeLinecap="round"
@@ -200,11 +201,13 @@ export const TopBar = () => {
             </div>
           </div>
 
-          <div className="h-8 w-px bg-gray-300"></div>
+          <div className="h-8 w-px bg-border"></div>
 
           {sharedControls}
 
-          <div className="h-8 w-px bg-gray-300"></div>
+          <div className="h-8 w-px bg-border"></div>
+
+          <ThemeToggle />
 
           <button
             onClick={handleSubmit}
@@ -244,18 +247,19 @@ export const TopBar = () => {
 
   // === Normal mode toolbar ===
   return (
-    <div className="top-bar p-4 bg-gray-200 flex justify-between items-center">
+    <div className="top-bar p-4 bg-secondary flex justify-between items-center">
       <div></div> {/* Empty placeholder to maintain layout */}
       <input
         type="text"
         placeholder="Diagram Title"
-        className="p-2 rounded border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        className="p-2 rounded border border-input bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
       />
       <div className="flex gap-2">
-        <button onClick={handleSave} className="p-2 rounded bg-blue-500 text-white hover:bg-blue-600 transition-colors">
+        <button onClick={handleSave} className="p-2 rounded bg-primary text-primary-foreground hover:bg-primary/90 transition-colors">
           Save
         </button>
         {sharedControls}
+        <ThemeToggle />
       </div>
     </div>
   );

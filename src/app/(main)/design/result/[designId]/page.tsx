@@ -1,7 +1,10 @@
+// app/(main)/design/result/[designId]/page.tsx
 import { notFound, redirect } from 'next/navigation';
 import { prisma } from '@/lib/prisma/userService';
 import { getServerSession } from 'next-auth';
 import { NEXT_AUTH_CONFIG } from '@/lib/nextAuthConfig';
+import Link from 'next/link';
+import ThemeToggle from '@/components/ui/ThemeToggle';
 
 interface DesignComponent {
   id: string;
@@ -47,14 +50,17 @@ export default async function DesignResultPage({ params }: { params: { designId:
   const diagramData = design.diagramData as DiagramData;
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
+    <div className="min-h-screen bg-background py-8">
+      <header className="flex justify-end mb-8 px-4">
+        <ThemeToggle />
+      </header>
       <div className="container mx-auto max-w-6xl px-4">
         {/* Header */}
-        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+        <div className="bg-card rounded-lg shadow-md p-6 mb-6 border border-border">
           <div className="flex justify-between items-start">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">{design.name}</h1>
-              <p className="text-gray-600">
+              <h1 className="text-3xl font-bold text-foreground mb-2">{design.name}</h1>
+              <p className="text-muted-foreground">
                 Created on {new Date(design.createdAt).toLocaleDateString('en-US', { 
                   year: 'numeric', 
                   month: 'long', 
@@ -63,8 +69,8 @@ export default async function DesignResultPage({ params }: { params: { designId:
               </p>
             </div>
             <div className="text-right">
-              <div className="text-sm text-gray-600">Total Estimated Cost</div>
-              <div className="text-3xl font-bold text-blue-600">
+              <div className="text-sm text-muted-foreground">Total Estimated Cost</div>
+              <div className="text-3xl font-bold text-primary">
                 ${diagramData.total_estimated_cost_per_month.toFixed(2)}<span className="text-lg">/mo</span>
               </div>
             </div>
@@ -72,48 +78,48 @@ export default async function DesignResultPage({ params }: { params: { designId:
         </div>
 
         {/* Design Rationale */}
-        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <h2 className="text-xl font-bold text-gray-900 mb-3">Design Rationale</h2>
-          <p className="text-gray-700 leading-relaxed">{diagramData.design_rationale}</p>
+        <div className="bg-card rounded-lg shadow-md p-6 mb-6 border border-border">
+          <h2 className="text-xl font-bold text-foreground mb-3">Design Rationale</h2>
+          <p className="text-muted-foreground leading-relaxed">{diagramData.design_rationale}</p>
         </div>
 
         {/* Components */}
-        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <h2 className="text-xl font-bold text-gray-900 mb-4">Architecture Components</h2>
+        <div className="bg-card rounded-lg shadow-md p-6 mb-6 border border-border">
+          <h2 className="text-xl font-bold text-foreground mb-4">Architecture Components</h2>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-b-2 border-gray-200">
-                  <th className="text-left py-3 px-4 font-semibold text-gray-700">Component</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-700">Type</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-700">Provider</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-700">Service</th>
-                  <th className="text-left py-3 px-4 font-semibold text-gray-700">Purpose</th>
-                  <th className="text-right py-3 px-4 font-semibold text-gray-700">Cost/Month</th>
+                <tr className="border-b-2 border-border">
+                  <th className="text-left py-3 px-4 font-semibold text-foreground">Component</th>
+                  <th className="text-left py-3 px-4 font-semibold text-foreground">Type</th>
+                  <th className="text-left py-3 px-4 font-semibold text-foreground">Provider</th>
+                  <th className="text-left py-3 px-4 font-semibold text-foreground">Service</th>
+                  <th className="text-left py-3 px-4 font-semibold text-foreground">Purpose</th>
+                  <th className="text-right py-3 px-4 font-semibold text-foreground">Cost/Month</th>
                 </tr>
               </thead>
               <tbody>
                 {diagramData.components.map((component) => (
-                  <tr key={component.id} className="border-b border-gray-100 hover:bg-gray-50">
-                    <td className="py-3 px-4 font-medium text-gray-900">{component.name}</td>
-                    <td className="py-3 px-4 text-gray-700">{component.type}</td>
+                  <tr key={component.id} className="border-b border-border hover:bg-accent/50">
+                    <td className="py-3 px-4 font-medium text-foreground">{component.name}</td>
+                    <td className="py-3 px-4 text-muted-foreground">{component.type}</td>
                     <td className="py-3 px-4">
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary/10 dark:bg-primary/20 text-primary">
                         {component.provider}
                       </span>
                     </td>
-                    <td className="py-3 px-4 text-gray-700">{component.service}</td>
-                    <td className="py-3 px-4 text-gray-600 text-sm">{component.purpose}</td>
-                    <td className="py-3 px-4 text-right font-semibold text-gray-900">
+                    <td className="py-3 px-4 text-muted-foreground">{component.service}</td>
+                    <td className="py-3 px-4 text-muted-foreground text-sm">{component.purpose}</td>
+                    <td className="py-3 px-4 text-right font-semibold text-foreground">
                       ${component.estimated_cost_per_month.toFixed(2)}
                     </td>
                   </tr>
                 ))}
               </tbody>
               <tfoot>
-                <tr className="border-t-2 border-gray-200 font-bold">
-                  <td colSpan={5} className="py-3 px-4 text-right text-gray-900">Total:</td>
-                  <td className="py-3 px-4 text-right text-blue-600">
+                <tr className="border-t-2 border-border font-bold">
+                  <td colSpan={5} className="py-3 px-4 text-right text-foreground">Total:</td>
+                  <td className="py-3 px-4 text-right text-primary">
                     ${diagramData.total_estimated_cost_per_month.toFixed(2)}
                   </td>
                 </tr>
@@ -123,27 +129,27 @@ export default async function DesignResultPage({ params }: { params: { designId:
         </div>
 
         {/* Connections */}
-        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <h2 className="text-xl font-bold text-gray-900 mb-4">Component Connections</h2>
+        <div className="bg-card rounded-lg shadow-md p-6 mb-6 border border-border">
+          <h2 className="text-xl font-bold text-foreground mb-4">Component Connections</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {diagramData.connections.map((connection, index) => {
               const sourceComponent = diagramData.components.find(c => c.id === connection.source);
               const targetComponent = diagramData.components.find(c => c.id === connection.target);
               
               return (
-                <div key={index} className="border border-gray-200 rounded-lg p-4">
+                <div key={index} className="border border-border rounded-lg p-4 hover:bg-accent/50">
                   <div className="flex items-center justify-between">
                     <div className="flex-1">
-                      <div className="font-medium text-gray-900">{sourceComponent?.name}</div>
-                      <div className="text-xs text-gray-500">{sourceComponent?.service}</div>
+                      <div className="font-medium text-foreground">{sourceComponent?.name}</div>
+                      <div className="text-xs text-muted-foreground">{sourceComponent?.service}</div>
                     </div>
                     <div className="px-3">
-                      <div className="text-xs text-center text-gray-600 mb-1">{connection.label}</div>
-                      <div className="text-2xl text-gray-400">→</div>
+                      <div className="text-xs text-center text-muted-foreground mb-1">{connection.label}</div>
+                      <div className="text-2xl text-muted-foreground">→</div>
                     </div>
                     <div className="flex-1 text-right">
-                      <div className="font-medium text-gray-900">{targetComponent?.name}</div>
-                      <div className="text-xs text-gray-500">{targetComponent?.service}</div>
+                      <div className="font-medium text-foreground">{targetComponent?.name}</div>
+                      <div className="text-xs text-muted-foreground">{targetComponent?.service}</div>
                     </div>
                   </div>
                 </div>
@@ -154,17 +160,18 @@ export default async function DesignResultPage({ params }: { params: { designId:
 
         {/* Actions */}
         <div className="flex gap-4">
-          <a
+          <Link
             href="/design/create"
-            className="flex-1 bg-blue-600 text-white text-center font-semibold px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors">
+            className="flex-1 bg-primary text-primary-foreground text-center font-semibold px-6 py-3 rounded-lg hover:bg-primary/90 transition-colors"
+          >
             Create New Design
-          </a>
-          <a
+          </Link>
+          <Link
             href="/design"
-            className="flex-1 bg-gray-200 text-gray-800 text-center font-semibold px-6 py-3 rounded-lg hover:bg-gray-300 transition-colors"
+            className="flex-1 bg-secondary text-secondary-foreground text-center font-semibold px-6 py-3 rounded-lg hover:bg-accent transition-colors"
           >
             View All Designs
-          </a>
+          </Link>
         </div>
       </div>
     </div>

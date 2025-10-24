@@ -108,25 +108,25 @@ export const BottomBar = () => {
   }, [reactFlowInstance, setNodes, setEdges]);
 
   return (
-    <div className="bottom-bar p-4 bg-gray-200 flex justify-center items-center gap-4">
+    <div className="bottom-bar p-4 bg-secondary flex justify-center items-center gap-4">
       {/* Export/Import Tools */}
       <div className="flex gap-2">
         <button 
           onClick={handleExportJSON} 
-          className="p-2 rounded bg-green-500 text-white hover:bg-green-600 transition-colors"
+          className="p-2 rounded bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
           title="Export Diagram as JSON"
         >
           Export JSON
         </button>
         <button 
           onClick={handleExportPNG} 
-          className="p-2 rounded bg-green-500 text-white hover:bg-green-600 transition-colors"
+          className="p-2 rounded bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
           title="Export Diagram as PNG"
         >
           Export PNG
         </button>
 
-        <label className="p-2 rounded bg-blue-500 text-white hover:bg-blue-600 transition-colors cursor-pointer" title="Import Diagram from JSON">
+        <label className="p-2 rounded bg-primary text-primary-foreground hover:bg-primary/90 transition-colors cursor-pointer" title="Import Diagram from JSON">
           Import JSON
           <input
             type="file"
@@ -141,7 +141,7 @@ export const BottomBar = () => {
       <div className="flex gap-2">
         <button 
           onClick={toggleDashed} 
-          className={`p-2 rounded ${currentEdgeConfig.style.strokeDasharray ? 'bg-red-500' : 'bg-gray-400'} text-white`}
+          className={`p-2 rounded ${currentEdgeConfig.style.strokeDasharray ? 'bg-destructive' : 'bg-muted'} text-foreground`}
           title="Toggle Edge Style (Dashed/Solid for new connections)"
         >
           {currentEdgeConfig.style.strokeDasharray ? 'Solid' : 'Dashed'}
@@ -152,7 +152,7 @@ export const BottomBar = () => {
       <div className="flex gap-2">
         <button 
           onClick={() => setActiveTool('text')} 
-          className="p-2 rounded bg-gray-400 text-white hover:bg-gray-500 transition-colors"
+          className="p-2 rounded bg-muted text-muted-foreground hover:bg-accent transition-colors"
           title="Add Text Annotation"
         >
           Text
@@ -163,14 +163,14 @@ export const BottomBar = () => {
       <div className="flex gap-2">
         <button 
           onClick={groupSelectedNodes} 
-          className="p-2 rounded bg-purple-500 text-white hover:bg-purple-600 transition-colors"
+          className="p-2 rounded bg-accent text-accent-foreground hover:bg-accent/90 transition-colors"
           title="Group Selected Nodes"
         >
           Group
         </button>
         <button 
           onClick={ungroupSelectedNodes} 
-          className="p-2 rounded bg-purple-500 text-white hover:bg-purple-600 transition-colors"
+          className="p-2 rounded bg-accent text-accent-foreground hover:bg-accent/90 transition-colors"
           title="Ungroup Selected Nodes"
         >
           Ungroup

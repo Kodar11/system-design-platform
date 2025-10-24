@@ -1,3 +1,4 @@
+// src/components/diagram/RightPanel.tsx
 "use client";
 
 import React, { useEffect } from 'react';
@@ -16,7 +17,7 @@ const DynamicForm = ({ control, register, metadata, watch, prefix = '' }: any) =
         if (config.options) {
           return (
             <div key={fieldName} className="flex flex-col">
-              <label className="text-sm font-medium text-gray-700 mb-2">{config.label}</label>
+              <label className="text-sm font-medium text-foreground mb-2">{config.label}</label>
               <Controller
                 name={fieldName}
                 control={control}
@@ -24,7 +25,7 @@ const DynamicForm = ({ control, register, metadata, watch, prefix = '' }: any) =
                 render={({ field }) => (
                   <select
                     {...field}
-                    className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full p-3 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-background text-foreground"
                   >
                     {config.options.map((option: string) => (
                       <option key={option} value={option}>
@@ -36,7 +37,7 @@ const DynamicForm = ({ control, register, metadata, watch, prefix = '' }: any) =
               />
               {/* Always render sub-options or configs if they exist, based on current selection */}
               {(config.sub_options || config.configs) && (
-                <div className="ml-6 mt-4 border-l border-gray-200 pl-6">
+                <div className="ml-6 mt-4 border-l border-border pl-6">
                   {(config.sub_options?.[watch(fieldName)] || config.configs?.[watch(fieldName)]) && (
                     <DynamicForm
                       control={control}
@@ -56,7 +57,7 @@ const DynamicForm = ({ control, register, metadata, watch, prefix = '' }: any) =
         if (config.type) {
           return (
             <div key={fieldName} className="flex flex-col">
-              <label className="text-sm font-medium text-gray-700 mb-2">{config.label}</label>
+              <label className="text-sm font-medium text-foreground mb-2">{config.label}</label>
               {config.type === 'boolean' ? (
                 <Controller
                   name={fieldName}
@@ -67,7 +68,7 @@ const DynamicForm = ({ control, register, metadata, watch, prefix = '' }: any) =
                       type="checkbox"
                       checked={field.value}
                       onChange={(e) => field.onChange(e.target.checked)}
-                      className="h-5 w-5 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                      className="h-5 w-5 text-primary border-input rounded focus:ring-primary bg-background"
                     />
                   )}
                 />
@@ -78,7 +79,7 @@ const DynamicForm = ({ control, register, metadata, watch, prefix = '' }: any) =
                     valueAsNumber: config.type === 'number',
                   })}
                   defaultValue={config.default || ''}
-                  className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full p-3 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-background text-foreground"
                 />
               )}
             </div>
@@ -89,8 +90,8 @@ const DynamicForm = ({ control, register, metadata, watch, prefix = '' }: any) =
         if (typeof config === 'object' && (config.configs || config.sub_options)) {
           return (
             <div key={fieldName} className="mt-4">
-              <p className="text-sm font-semibold text-gray-800 mb-2">{config.label}</p>
-              <div className="ml-6 border-l border-gray-200 pl-6">
+              <p className="text-sm font-semibold text-foreground mb-2">{config.label}</p>
+              <div className="ml-6 border-l border-border pl-6">
                 <DynamicForm
                   control={control}
                   register={register}
@@ -107,8 +108,8 @@ const DynamicForm = ({ control, register, metadata, watch, prefix = '' }: any) =
         if (typeof config === 'object' && !config.type && !config.options) {
           return (
             <div key={fieldName} className="mt-4">
-              <p className="text-sm font-semibold text-gray-800 mb-2">{config.label || key}</p>
-              <div className="ml-6 border-l border-gray-200 pl-6">
+              <p className="text-sm font-semibold text-foreground mb-2">{config.label || key}</p>
+              <div className="ml-6 border-l border-border pl-6">
                 <DynamicForm
                   control={control}
                   register={register}
@@ -141,8 +142,8 @@ export const RightPanel = () => {
 
   if (!selectedNode) {
     return (
-      <aside className="w-80 p-6 bg-gray-50 border-l border-gray-200">
-        <p className="text-gray-500 italic">Select a component to edit its properties.</p>
+      <aside className="w-80 p-6 bg-muted border-l border-border">
+        <p className="text-muted-foreground italic">Select a component to edit its properties.</p>
       </aside>
     );
   }
@@ -153,14 +154,14 @@ export const RightPanel = () => {
   };
 
   return (
-    <aside className="w-80 p-6 bg-white border-l border-gray-200 shadow-lg">
-      <h3 className="text-xl font-bold text-gray-900 mb-6">Edit {selectedNode.data.label}</h3>
+    <aside className="w-80 p-6 bg-card border-l border-border shadow-lg">
+      <h3 className="text-xl font-bold text-foreground mb-6">Edit {selectedNode.data.label}</h3>
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
         <div className="flex flex-col space-y-2">
-          <label className="text-sm font-medium text-gray-700">Name</label>
+          <label className="text-sm font-medium text-foreground">Name</label>
           <input
             {...register('label')}
-            className="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full p-3 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-background text-foreground"
           />
         </div>
 
@@ -175,7 +176,7 @@ export const RightPanel = () => {
 
         <button
           type="submit"
-          className="w-full p-3 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full p-3 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-primary"
         >
           Save Properties
         </button>

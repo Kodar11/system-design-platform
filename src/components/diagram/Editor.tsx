@@ -33,7 +33,7 @@ const AlignmentGuides = ({ guides }: { guides: { vertical: number[]; horizontal:
       {guides.vertical.map((x, i) => (
         <div
           key={`v-${i}`}
-          className="absolute top-0 bottom-0 w-0.5 bg-blue-400 opacity-50"
+          className="absolute top-0 bottom-0 w-0.5 bg-primary opacity-50"
           style={{
             left: `${(x - viewport.x) / viewport.zoom}px`,
           }}
@@ -42,7 +42,7 @@ const AlignmentGuides = ({ guides }: { guides: { vertical: number[]; horizontal:
       {guides.horizontal.map((y, i) => (
         <div
           key={`h-${i}`}
-          className="absolute left-0 right-0 h-0.5 bg-blue-400 opacity-50"
+          className="absolute left-0 right-0 h-0.5 bg-primary opacity-50"
           style={{
             top: `${(y - viewport.y) / viewport.zoom}px`,
           }}
@@ -305,7 +305,7 @@ export const Editor = () => {
   }, [toggleEdgeStyle]);
 
   return (
-    <div className="reactflow-wrapper" ref={reactFlowWrapper} style={{ position: 'relative', height: 'calc(100vh - 128px)', width: '100%' }} tabIndex={0}>
+    <div className="reactflow-wrapper bg-background" ref={reactFlowWrapper} style={{ position: 'relative', height: 'calc(100vh - 128px)', width: '100%' }} tabIndex={0}>
       <ReactFlow
         nodes={nodes}
         edges={edges}
