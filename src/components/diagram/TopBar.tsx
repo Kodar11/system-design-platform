@@ -115,6 +115,56 @@ export const TopBar = () => {
     }
   };
 
+  // NEW: Shared handlers
+  const handleZoomToSelection = () => {
+    const selected = nodes.filter((n) => n.selected);
+    if (selected.length > 0 && reactFlowInstance) {
+      reactFlowInstance.fitView({ nodes: selected, padding: 0.25, duration: 600 });
+    } else {
+      handleFitView(); // Fallback to full view
+    }
+  };
+
+  const hasSelection = nodes.some((n) => n.selected);
+
+  // === Shared toolbar elements (undo/redo/fit/zoom) ===
+  const sharedControls = (
+    <>
+      <button
+        onClick={() => undo()}
+        className="p-2 rounded bg-gray-200 text-gray-700 hover:bg-gray-300 disabled:opacity-50 transition-colors"
+        disabled={pastStates.length === 0}
+        title="Undo (Ctrl+Z)"
+      >
+        ⤺
+      </button>
+      <button
+        onClick={() => redo()}
+        className="p-2 rounded bg-gray-200 text-gray-700 hover:bg-gray-300 disabled:opacity-50 transition-colors"
+        disabled={futureStates.length === 0}
+        title="Redo (Ctrl+Y / Ctrl+Shift+Z)"
+      >
+        ⤼
+      </button>
+      <button
+        onClick={handleFitView}
+        className="p-2 rounded bg-gray-200 text-gray-700 hover:bg-gray-300 transition-colors"
+        title="Fit View"
+      >
+        ⤢
+      </button>
+      {/* NEW: Zoom to Selection */}
+      <button
+        onClick={handleZoomToSelection}
+        disabled={!hasSelection}
+        className="p-2 rounded bg-gray-200 text-gray-700 hover:bg-gray-300 disabled:opacity-50 transition-colors"
+        title="Zoom to Selection"
+      >
+        🔍
+      </button>
+    </>
+  );
+
   if (problemMode) {
     return (
       <div className="top-bar p-4 bg-white border-b border-gray-300 flex justify-between items-center shadow-sm">
@@ -166,29 +216,7 @@ export const TopBar = () => {
 
           <div className="h-8 w-px bg-gray-300"></div>
 
-          <button
-            onClick={() => undo()}
-            className="p-2 rounded bg-gray-200 text-gray-700 hover:bg-gray-300 disabled:opacity-50 transition-colors"
-            disabled={pastStates.length === 0}
-            title="Undo"
-          >
-            ⤺
-          </button>
-          <button
-            onClick={() => redo()}
-            className="p-2 rounded bg-gray-200 text-gray-700 hover:bg-gray-300 disabled:opacity-50 transition-colors"
-            disabled={futureStates.length === 0}
-            title="Redo"
-          >
-            ⤼
-          </button>
-          <button
-            onClick={handleFitView}
-            className="p-2 rounded bg-gray-200 text-gray-700 hover:bg-gray-300 transition-colors"
-            title="Fit View"
-          >
-            ⤢
-          </button>
+          {sharedControls}
 
           <div className="h-8 w-px bg-gray-300"></div>
 
@@ -245,26 +273,7 @@ export const TopBar = () => {
         className="p-2 rounded border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
       />
       <div className="flex gap-2">
-        <button
-          onClick={() => undo()}
-          className="p-2 rounded bg-gray-400 text-white hover:bg-gray-500 disabled:opacity-50 transition-colors"
-          disabled={pastStates.length === 0}
-        >
-          Undo
-        </button>
-        <button
-          onClick={() => redo()}
-          className="p-2 rounded bg-gray-400 text-white hover:bg-gray-500 disabled:opacity-50 transition-colors"
-          disabled={futureStates.length === 0}
-        >
-          Redo
-        </button>
-        <button
-          onClick={handleFitView}
-          className="p-2 rounded bg-gray-400 text-white hover:bg-gray-500 transition-colors"
-        >
-          Fit View
-        </button>
+        {sharedControls}
       </div>
     </div>
   );

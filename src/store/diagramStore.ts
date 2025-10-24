@@ -12,6 +12,7 @@ import {
   applyEdgeChanges,
   ReactFlowInstance,
   XYPosition,
+  ConnectionLineType,
 } from 'reactflow';
 
 type TemporalActions = {
@@ -22,7 +23,7 @@ type TemporalActions = {
 };
 
 interface EdgeConfig {
-  type: string;
+  type: ConnectionLineType;
   animated: boolean;
   style: React.CSSProperties;
 }
@@ -32,7 +33,7 @@ interface DiagramState {
   edges: Edge[];
   selectedNode: Node | null;
   reactFlowInstance: ReactFlowInstance | null;
-  activeTool: 'none' | 'lasso' | 'eraser' | 'rectangle' | 'text';
+  activeTool: 'none' | 'text';
   currentEdgeConfig: EdgeConfig;
   
   onNodesChange: (changes: NodeChange[]) => void;
@@ -49,9 +50,15 @@ interface DiagramState {
   setReactFlowInstance: (instance: ReactFlowInstance) => void;
   groupSelectedNodes: () => void;
   ungroupSelectedNodes: () => void;
-  setActiveTool: (tool: 'none' | 'lasso' | 'eraser' | 'rectangle' | 'text') => void;
+  setActiveTool: (tool: 'none' | 'text') => void;
   setCurrentEdgeConfig: (config: EdgeConfig) => void;
   
+  // NEW: Duplicate action (minor addition)
+  duplicateSelectedNodes: () => void;
+
+  // NEW: Toggle dashed style for a specific edge
+  toggleEdgeStyle: (edgeId: string) => void;
+
   // The temporal object is now part of the store's state
   temporal?: TemporalActions; 
 }
@@ -86,7 +93,7 @@ export const useDiagramStore = create<DiagramState>()(
       selectedNode: null,
       reactFlowInstance: null,
       activeTool: 'none',
-      currentEdgeConfig: { type: 'default', animated: false, style: {} },
+      currentEdgeConfig: { type: ConnectionLineType.Step, animated: false, style: {} }, // DEFAULT: Right-angled (Step)
 
       onNodesChange: (changes: NodeChange[]) => {
         set({
@@ -164,9 +171,8 @@ export const useDiagramStore = create<DiagramState>()(
       groupSelectedNodes: () => {
         set((state) => {
           const selectedNodes = state.nodes.filter(n => n.selected);
-          if (selectedNodes.length < 2) return state; // Need at least 2 nodes to group
+          if (selectedNodes.length < 2) return state;
 
-          // Calculate bounding box for the group
           let minX = Infinity;
           let minY = Infinity;
           let maxX = -Infinity;
@@ -184,7 +190,6 @@ export const useDiagramStore = create<DiagramState>()(
           const groupHeight = maxY - minY + padding * 2;
           const groupPosition: XYPosition = { x: minX - padding, y: minY - padding };
 
-          // Create group node
           const groupId = Date.now().toString();
           const groupNode: Node = {
             id: groupId,
@@ -194,7 +199,6 @@ export const useDiagramStore = create<DiagramState>()(
             data: { label: 'Group' },
           };
 
-          // Update children: set parentId, relative position, extent
           const updatedNodes = state.nodes.map(node => {
             if (selectedNodes.some(n => n.id === node.id)) {
               return {
@@ -205,7 +209,7 @@ export const useDiagramStore = create<DiagramState>()(
                   x: node.position.x - groupPosition.x,
                   y: node.position.y - groupPosition.y,
                 },
-                selected: false, // Deselect after grouping
+                selected: false,
               };
             }
             return node;
@@ -224,7 +228,6 @@ export const useDiagramStore = create<DiagramState>()(
           selectedGroups.forEach(group => {
             const groupPosition = group.position;
 
-            // Update children: remove parentId, set absolute position, remove extent
             newNodes = newNodes.map(node => {
               if (node.parentId === group.id) {
                 return {
@@ -240,7 +243,6 @@ export const useDiagramStore = create<DiagramState>()(
               return node;
             });
 
-            // Remove the group if empty (no children left)
             if (newNodes.filter(n => n.parentId === group.id).length === 0) {
               newNodes = newNodes.filter(n => n.id !== group.id);
             }
@@ -250,13 +252,74 @@ export const useDiagramStore = create<DiagramState>()(
         });
       },
 
-      setActiveTool: (tool) => set({ activeTool: tool }),
+      setActiveTool: (tool: 'none' | 'text') => set({ activeTool: tool }),
 
       setCurrentEdgeConfig: (config: EdgeConfig) => set({ currentEdgeConfig: config }),
+
+      // NEW: Toggle dashed style for a specific edge
+      toggleEdgeStyle: (edgeId: string) => {
+        set((state) => ({
+          edges: state.edges.map(edge =>
+            edge.id === edgeId
+              ? {
+                  ...edge,
+                  style: edge.style?.strokeDasharray
+                    ? {} // Switch to solid
+                    : { strokeDasharray: '5, 5' }, // Switch to dashed
+                }
+              : edge
+          ),
+        }));
+      },
+
+      duplicateSelectedNodes: () => {
+        set((state) => {
+          const selectedNodes = state.nodes.filter((n) => n.selected);
+          if (selectedNodes.length === 0) return state;
+
+          const offsetX = 30;
+          const offsetY = 30;
+          const oldToNewIdMap = new Map<string, string>();
+
+          const duplicatedNodes: Node[] = selectedNodes.map((node) => {
+            const newId = `${node.id}-dup-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
+            oldToNewIdMap.set(node.id, newId);
+            return {
+              ...node,
+              id: newId,
+              position: {
+                x: node.position.x + offsetX,
+                y: node.position.y + offsetY,
+              },
+              selected: true,
+            };
+          });
+
+          const selectedNodeIdSet = new Set(selectedNodes.map((n) => n.id));
+          const duplicatedEdges: Edge[] = state.edges
+            .filter((e) => selectedNodeIdSet.has(e.source) && selectedNodeIdSet.has(e.target))
+            .map((e) => ({
+              ...e,
+              id: `${e.id}-dup-${Date.now()}`,
+              source: oldToNewIdMap.get(e.source)!,
+              target: oldToNewIdMap.get(e.target)!,
+            }));
+
+          const nodesWithoutOriginals = state.nodes.map((n) =>
+            n.selected ? { ...n, selected: false } : n
+          );
+
+          return {
+            nodes: [...nodesWithoutOriginals, ...duplicatedNodes],
+            edges: [...state.edges, ...duplicatedEdges],
+            selectedNode: null,
+          };
+        });
+      },
     }),
     {
       partialize: (state) => ({ nodes: state.nodes, edges: state.edges }),
       equality,
     }
   )
-);  
+);

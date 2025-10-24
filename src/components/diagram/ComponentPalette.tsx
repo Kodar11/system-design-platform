@@ -1,3 +1,4 @@
+// src/components/diagram/ComponentPalette.tsx
 "use client";
 
 import React from "react";
