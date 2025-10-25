@@ -4,6 +4,7 @@ import { createDesign } from '@/app/actions';
 import { getServerSession } from 'next-auth';
 import { NEXT_AUTH_CONFIG } from '@/lib/nextAuthConfig';
 import ThemeToggle from '@/components/ui/ThemeToggle';
+import NavBar from '@/components/ui/NavBar';
 
 async function handleCreateDesign(formData: FormData) {
   'use server';
@@ -25,6 +26,8 @@ export default async function CreateDesignPage() {
   }
 
   return (
+    <>
+    <NavBar/>
     <div className="min-h-screen bg-background py-8">
       <header className="flex justify-end mb-8 px-4">
         <ThemeToggle />
@@ -148,5 +151,6 @@ export default async function CreateDesignPage() {
         </div>
       </div>
     </div>
+    </>
   );
 }

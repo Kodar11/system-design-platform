@@ -5,6 +5,7 @@ import { getServerSession } from 'next-auth';
 import { NEXT_AUTH_CONFIG } from '@/lib/nextAuthConfig';
 import { redirect } from 'next/navigation';
 import ThemeToggle from '@/components/ui/ThemeToggle';
+import NavBar from '@/components/ui/NavBar';
 
 export default async function ProblemsPage() {
   const session = await getServerSession(NEXT_AUTH_CONFIG);
@@ -34,6 +35,8 @@ export default async function ProblemsPage() {
   };
 
   return (
+    <>
+    <NavBar/>
     <div className="min-h-screen bg-background p-8">
       <header className="max-w-6xl mx-auto flex justify-between items-center mb-8">
         <h1 className="text-4xl font-bold text-foreground">
@@ -86,5 +89,6 @@ export default async function ProblemsPage() {
         )}
       </div>
     </div>
+    </>
   );
 }

@@ -6,6 +6,7 @@ import { NEXT_AUTH_CONFIG } from '@/lib/nextAuthConfig';
 import { redirect } from 'next/navigation';
 import { notFound } from 'next/navigation';
 import ThemeToggle from '@/components/ui/ThemeToggle';
+import NavBar from '@/components/ui/NavBar';
 
 interface PageProps {
   params: Promise<{ submissionId: string }>;
@@ -68,6 +69,8 @@ export default async function SubmissionResultPage({ params }: PageProps) {
   };
 
   return (
+    <>
+    <NavBar/>
     <div className="min-h-screen bg-background p-8">
       <header className="flex justify-between items-center mb-6 max-w-5xl mx-auto">
         <Link 
@@ -243,5 +246,6 @@ export default async function SubmissionResultPage({ params }: PageProps) {
         </div>
       </div>
     </div>
+    </>
   );
 }

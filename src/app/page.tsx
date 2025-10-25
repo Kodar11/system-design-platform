@@ -4,6 +4,7 @@ import { NEXT_AUTH_CONFIG } from "@/lib/nextAuthConfig";
 import Link from "next/link";
 import Particles from "@/components/ui/Particles";
 import { Sparkles, Zap, DollarSign, Layout, BookOpen, Users } from "lucide-react";
+import NavBar from "@/components/ui/NavBar";
 
 export default async function Home() {
   const session = await getServerSession(NEXT_AUTH_CONFIG);
@@ -65,6 +66,7 @@ export default async function Home() {
   ];
 
   return (
+    <> <NavBar/>
     <div className="min-h-screen relative overflow-hidden bg-background">
       {/* Animated Particles Background */}
       <div className="fixed inset-0 z-0 w-full h-full">
@@ -266,5 +268,6 @@ export default async function Home() {
         </footer>
       </div>
     </div>
+    </>
   );
 }

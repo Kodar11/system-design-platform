@@ -6,6 +6,7 @@ import { NEXT_AUTH_CONFIG } from '@/lib/nextAuthConfig';
 import { redirect } from 'next/navigation';
 import { notFound } from 'next/navigation';
 import ThemeToggle from '@/components/ui/ThemeToggle';
+import NavBar from '@/components/ui/NavBar';
 
 export default async function ProblemDetailPage({ 
   params 
@@ -66,6 +67,8 @@ export default async function ProblemDetailPage({
   };
 
   return (
+    <>
+    <NavBar/>    
     <div className="min-h-screen bg-gradient-to-br from-background to-secondary/20">
       {/* Header Section */}
       <header className="bg-card shadow-sm border-b border-border flex justify-between items-center px-8 py-4">
@@ -320,5 +323,6 @@ export default async function ProblemDetailPage({
         }}
       />
     </div>
+    </>
   );
 }

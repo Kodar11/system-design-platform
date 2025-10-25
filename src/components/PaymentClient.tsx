@@ -5,6 +5,7 @@ import Script from "next/script";
 import { useState } from "react";
 import { createRazorpaySubscription } from "@/app/actions";
 import { useSession } from "next-auth/react";
+import NavBar from "./ui/NavBar";
 
 // 1. Define types for the data we expect from the backend
 interface Plan {
@@ -112,6 +113,7 @@ export default function PaymentClient({ plans }: { plans: Plan[] }) {
 
   return (
     <>
+    <NavBar/>
       <Script
         id="razorpay-checkout-js"
         src="https://checkout.razorpay.com/v1/checkout.js"

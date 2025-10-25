@@ -5,6 +5,7 @@ import { NEXT_AUTH_CONFIG } from '@/lib/nextAuthConfig';
 import { prisma } from '@/lib/prisma/userService';
 import { redirect } from 'next/navigation';
 import ThemeToggle from '@/components/ui/ThemeToggle';
+import NavBar from '@/components/ui/NavBar';
 
 export default async function DesignListPage() {
   const session = await getServerSession(NEXT_AUTH_CONFIG);
@@ -25,6 +26,8 @@ export default async function DesignListPage() {
   });
 
   return (
+    <>
+    <NavBar/>
     <div className="min-h-screen bg-background py-8">
       <header className="container mx-auto max-w-6xl px-4 flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold text-foreground">My Designs</h1>
@@ -97,5 +100,6 @@ export default async function DesignListPage() {
         )}
       </div>
     </div>
+    </>
   );
 }

@@ -5,6 +5,7 @@ import { getServerSession } from 'next-auth';
 import { NEXT_AUTH_CONFIG } from '@/lib/nextAuthConfig';
 import Link from 'next/link';
 import ThemeToggle from '@/components/ui/ThemeToggle';
+import NavBar from '@/components/ui/NavBar';
 
 interface DesignComponent {
   id: string;
@@ -51,6 +52,8 @@ export default async function DesignResultPage({ params }: { params: Promise<{ d
   const diagramData = design.diagramData as DiagramData;
 
   return (
+    <>
+    <NavBar/>
     <div className="min-h-screen bg-background py-8">
       <header className="flex justify-end mb-8 px-4">
         <ThemeToggle />
@@ -176,5 +179,6 @@ export default async function DesignResultPage({ params }: { params: Promise<{ d
         </div>
       </div>
     </div>
+    </>
   );
 }

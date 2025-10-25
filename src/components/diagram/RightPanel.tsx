@@ -27,7 +27,7 @@ const DynamicForm = ({ control, register, metadata, watch, prefix = '' }: Dynami
   if (!metadata) return null;
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4">
       {Object.entries(metadata).map(([key, config]: [string, unknown]) => {
         const configData = config as MetadataConfig;
         const fieldName = prefix ? `${prefix}.${key}` : key;
@@ -54,9 +54,9 @@ const DynamicForm = ({ control, register, metadata, watch, prefix = '' }: Dynami
                   </select>
                 )}
               />
-              {/* Always render sub-options or configs if they exist, based on current selection */}
+              {/* Render sub-options or configs if they exist, based on current selection */}
               {(configData.sub_options || configData.configs) ? (
-                <div className="ml-6 mt-4 border-l border-border pl-6">
+                <div className="mt-2">
                   {(() => {
                     const watchedValue = String(watch(fieldName));
                     const subOptions = configData.sub_options as Record<string, unknown>;
@@ -115,36 +115,36 @@ const DynamicForm = ({ control, register, metadata, watch, prefix = '' }: Dynami
         // Handle nested configuration objects
         if (typeof configData === 'object' && (configData.configs || configData.sub_options)) {
           return (
-            <div key={fieldName} className="mt-4">
-              <p className="text-sm font-semibold text-foreground mb-2">{String(configData.label || '')}</p>
-              <div className="ml-6 border-l border-border pl-6">
-                <DynamicForm
-                  control={control}
-                  register={register}
-                  metadata={(configData.configs || configData.sub_options) as Record<string, unknown>}
-                  watch={watch}
-                  prefix={fieldName}
-                />
-              </div>
-            </div>
+            <>
+              {configData.label && (
+                <p className="text-sm font-semibold text-foreground mb-2">{String(configData.label || '')}</p>
+              )}
+              <DynamicForm
+                control={control}
+                register={register}
+                metadata={(configData.configs || configData.sub_options) as Record<string, unknown>}
+                watch={watch}
+                prefix={fieldName}
+              />
+            </>
           );
         }
 
         // Handle top-level nested objects without specific type
         if (typeof configData === 'object' && !configData.type && !configData.options) {
           return (
-            <div key={fieldName} className="mt-4">
-              <p className="text-sm font-semibold text-foreground mb-2">{String(configData.label || key)}</p>
-              <div className="ml-6 border-l border-border pl-6">
-                <DynamicForm
-                  control={control}
-                  register={register}
-                  metadata={configData as Record<string, unknown>}
-                  watch={watch}
-                  prefix={fieldName}
-                />
-              </div>
-            </div>
+            <>
+              {configData.label && (
+                <p className="text-sm font-semibold text-foreground mb-2">{String(configData.label || key)}</p>
+              )}
+              <DynamicForm
+                control={control}
+                register={register}
+                metadata={configData as Record<string, unknown>}
+                watch={watch}
+                prefix={fieldName}
+              />
+            </>
           );
         }
 
@@ -158,13 +158,25 @@ export const RightPanel = () => {
   const selectedNode = useDiagramStore((state) => state.selectedNode);
   const updateNodeProperties = useDiagramStore((state) => state.updateNodeProperties);
 
-  const { register, handleSubmit, reset, control, watch } = useForm<FieldValues>();
+  const { register, reset, control, watch } = useForm<FieldValues>();
 
   useEffect(() => {
     if (selectedNode) {
       reset(selectedNode.data);
     }
   }, [selectedNode, reset]);
+
+  useEffect(() => {
+    if (!selectedNode) return;
+
+    const subscription = watch((value) => {
+      if (value) {
+        updateNodeProperties(selectedNode.id, value);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [watch, selectedNode, updateNodeProperties]);
 
   if (!selectedNode) {
     return (
@@ -174,15 +186,10 @@ export const RightPanel = () => {
     );
   }
 
-  const onSubmit = (data: FieldValues) => {
-    updateNodeProperties(selectedNode.id, data);
-    alert('Properties updated!');
-  };
-
   return (
     <aside className="w-80 p-6 bg-card border-l border-border shadow-lg">
       <h3 className="text-xl font-bold text-foreground mb-6">Edit {selectedNode.data.label}</h3>
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+      <div className="space-y-6">
         <div className="flex flex-col space-y-2">
           <label className="text-sm font-medium text-foreground">Name</label>
           <input
@@ -199,14 +206,7 @@ export const RightPanel = () => {
             watch={watch}
           />
         )}
-
-        <button
-          type="submit"
-          className="w-full p-3 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-primary"
-        >
-          Save Properties
-        </button>
-      </form>
+      </div>
     </aside>
   );
 };
