@@ -5,6 +5,7 @@ import { getServerSession } from 'next-auth';
 import { NEXT_AUTH_CONFIG } from '@/lib/nextAuthConfig';
 import Link from 'next/link';
 import NavBar from '@/components/ui/NavBar';
+import Footer from '@/components/ui/Footer';
 
 interface DesignComponent {
   id: string;
@@ -176,6 +177,7 @@ export default async function DesignResultPage({ params }: { params: Promise<{ d
         </div>
       </div>
     </div>
+    <Footer/>
     </>
   );
 }

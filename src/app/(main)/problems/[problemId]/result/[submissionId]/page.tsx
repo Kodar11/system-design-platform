@@ -7,6 +7,7 @@ import { redirect } from 'next/navigation';
 import { notFound } from 'next/navigation';
 import ThemeToggle from '@/components/ui/ThemeToggle';
 import NavBar from '@/components/ui/NavBar';
+import Footer from '@/components/ui/Footer';
 
 interface PageProps {
   params: Promise<{ submissionId: string }>;
@@ -252,6 +253,7 @@ export default async function SubmissionResultPage({ params }: PageProps) {
         </div>
       </div>
     </div>
+    <Footer/>
     </>
   );
 }

@@ -5,6 +5,7 @@ import Link from "next/link";
 import Particles from "@/components/ui/Particles";
 import { Sparkles, Zap, DollarSign, Layout, BookOpen, Users } from "lucide-react";
 import NavBar from "@/components/ui/NavBar";
+import Footer from "@/components/ui/Footer";
 
 export default async function Home() {
   const session = await getServerSession(NEXT_AUTH_CONFIG);
@@ -256,18 +257,10 @@ export default async function Home() {
               )}
             </div>
           </div>
-        </section>
-
-        {/* Footer */}
-        <footer className="border-t border-border/40 backdrop-blur-md bg-card/30 py-8">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="text-center text-muted-foreground">
-              <p>&copy; 2025 System Design Platform. Built with AI for the future of architecture.</p>
-            </div>
-          </div>
-        </footer>
+        </section>          
       </div>
     </div>
+    <Footer/>
     </>
   );
 }

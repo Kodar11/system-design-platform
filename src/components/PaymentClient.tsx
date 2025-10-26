@@ -6,6 +6,7 @@ import { useState } from "react";
 import { createRazorpaySubscription } from "@/app/actions";
 import { useSession } from "next-auth/react";
 import NavBar from "./ui/NavBar";
+import Footer from "./ui/Footer";
 
 // 1. Define types for the data we expect from the backend
 interface Plan {
@@ -136,6 +137,7 @@ export default function PaymentClient({ plans }: { plans: Plan[] }) {
           ))}
         </div>
       </div>
+      <Footer/>
     </>
   );
 }

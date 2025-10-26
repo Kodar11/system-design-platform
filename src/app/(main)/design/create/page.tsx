@@ -4,6 +4,7 @@ import { createDesign } from '@/app/actions';
 import { getServerSession } from 'next-auth';
 import { NEXT_AUTH_CONFIG } from '@/lib/nextAuthConfig';
 import NavBar from '@/components/ui/NavBar';
+import Footer from '@/components/ui/Footer';
 
 async function handleCreateDesign(formData: FormData) {
   'use server';
@@ -148,6 +149,7 @@ export default async function CreateDesignPage() {
         </div>
       </div>
     </div>
+    <Footer/>
     </>
   );
 }

@@ -6,6 +6,7 @@ import { redirect } from 'next/navigation';
 import { notFound } from 'next/navigation';
 import ThemeToggle from '@/components/ui/ThemeToggle';
 import NavBar from '@/components/ui/NavBar';
+import Footer from '@/components/ui/Footer';
 
 export default async function ProblemDetailPage({ 
   params 
@@ -319,6 +320,7 @@ export default async function ProblemDetailPage({
         }}
       />
     </div>
+    <Footer/>
     </>
   );
 }

@@ -5,6 +5,7 @@ import { NEXT_AUTH_CONFIG } from '@/lib/nextAuthConfig';
 import { prisma } from '@/lib/prisma/userService';
 import { redirect } from 'next/navigation';
 import NavBar from '@/components/ui/NavBar';
+import Footer from '@/components/ui/Footer';
 
 export default async function DesignListPage() {
   const session = await getServerSession(NEXT_AUTH_CONFIG);
@@ -98,6 +99,7 @@ export default async function DesignListPage() {
         )}
       </div>
     </div>
+    <Footer/>
     </>
   );
 }

@@ -4,6 +4,7 @@ import { getServerSession } from 'next-auth';
 import { NEXT_AUTH_CONFIG } from '@/lib/nextAuthConfig';
 import { redirect } from 'next/navigation';
 import NavBar from '@/components/ui/NavBar';
+import Footer from '@/components/ui/Footer';
 
 export default async function ProblemsPage() {
   const session = await getServerSession(NEXT_AUTH_CONFIG);
@@ -87,6 +88,7 @@ export default async function ProblemsPage() {
         )}
       </div>
     </div>
+    <Footer/>
     </>
   );
 }
