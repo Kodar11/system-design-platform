@@ -4,7 +4,6 @@ import { getServerSession } from 'next-auth';
 import { NEXT_AUTH_CONFIG } from '@/lib/nextAuthConfig';
 import { prisma } from '@/lib/prisma/userService';
 import { redirect } from 'next/navigation';
-import ThemeToggle from '@/components/ui/ThemeToggle';
 import NavBar from '@/components/ui/NavBar';
 
 export default async function DesignListPage() {
@@ -32,7 +31,6 @@ export default async function DesignListPage() {
       <header className="container mx-auto max-w-6xl px-4 flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold text-foreground">My Designs</h1>
         <div className="flex items-center gap-4">
-          <ThemeToggle />
           {/* Link for creating new design */}
           <Link
             href="/design/create"

@@ -6,11 +6,12 @@ import { useDiagramStore } from '@/store/diagramStore';
 import { useReactFlow } from 'reactflow';
 import { useRouter, usePathname } from 'next/navigation';
 import { submitProblemSolution } from '@/app/actions';
+import { getProblem } from '@/app/actions';
 import Link from 'next/link';
 import ThemeToggle from '@/components/ui/ThemeToggle';
 
 export const TopBar = () => {
-  const { nodes, edges } = useDiagramStore();
+  const { nodes, edges, totalCost, budget, hasCriticalErrors, computeCostsAndErrors, setProblemData, setBudget, setConfigurationTargets } = useDiagramStore();
   const reactFlowInstance = useReactFlow();
   const router = useRouter();
   const pathname = usePathname();
@@ -35,6 +36,25 @@ export const TopBar = () => {
       setProblemId(null);
     }
   }, [pathname]);
+
+  // Load problem data
+  useEffect(() => {
+    if (problemId) {
+      getProblem(problemId)
+        .then((problem) => {
+          if (problem && problem.requirements) {
+            const reqs = problem.requirements as any;
+            setProblemData(reqs);
+            setBudget(reqs.budget_usd);
+            setConfigurationTargets(reqs.configuration_targets || {});
+            computeCostsAndErrors();
+          }
+        })
+        .catch((error) => {
+          console.error('Failed to load problem:', error);
+        });
+    }
+  }, [problemId, setProblemData, setBudget, setConfigurationTargets, computeCostsAndErrors]);
 
   const handleSave = () => {
     if (reactFlowInstance) {
@@ -154,6 +174,9 @@ export const TopBar = () => {
   );
 
   if (problemMode) {
+    const isOverBudget = budget !== undefined && totalCost > budget;
+    const submitDisabled = isSubmitting || nodes.length === 0 || (budget !== undefined && isOverBudget) || hasCriticalErrors;
+
     return (
       <div className="top-bar p-4 bg-card border-b border-border flex justify-between items-center shadow-sm">
         <div className="flex items-center gap-4">
@@ -202,6 +225,19 @@ export const TopBar = () => {
             </div>
           </div>
 
+          {/* Global Cost Tracking */}
+          {budget !== undefined && (
+            <div className="flex items-center gap-4 px-3 py-2 bg-muted rounded-lg">
+              <div className={`text-sm font-medium ${isOverBudget ? 'text-destructive' : 'text-green-600'}`}>
+                Total: ${totalCost.toFixed(2)}
+              </div>
+              <span className="text-muted-foreground">/</span>
+              <div className={`text-sm ${isOverBudget ? 'text-destructive' : 'text-muted-foreground'}`}>
+                ${budget}
+              </div>
+            </div>
+          )}
+
           <div className="h-8 w-px bg-border"></div>
 
           {sharedControls}
@@ -212,8 +248,9 @@ export const TopBar = () => {
 
           <button
             onClick={handleSubmit}
-            disabled={isSubmitting || nodes.length === 0}
-            className="px-6 py-2.5 bg-gradient-to-r from-green-600 to-green-700 text-white font-semibold rounded-lg hover:from-green-700 hover:to-green-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg flex items-center gap-2"
+            disabled={submitDisabled}
+            className="px-6 py-2.5 bg-gradient-to-r from-green-600 to-green-700 text-white font-semibold rounded-lg hover:from-green-700 hover:to-green-800 disabled:opacity-50 disabled:cursor-not-allowed disabled:from-gray-400 disabled:to-gray-500 transition-all shadow-md hover:shadow-lg flex items-center gap-2"
+            title={submitDisabled ? (isOverBudget ? 'Over budget' : hasCriticalErrors ? 'Resolve configuration errors' : 'Add components first') : ''}
           >
             {isSubmitting ? (
               <>

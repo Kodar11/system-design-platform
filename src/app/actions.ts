@@ -714,3 +714,13 @@ export async function sendOtp(email: string, newUserData?: TempUserData) {
         throw new Error("Failed to send OTP due to an unknown error.");
     }
 }
+
+export async function getProblem(problemId: string) {
+  const problem = await prisma.problem.findUnique({
+    where: { id: problemId, isDeleted: false },
+  });
+  if (!problem) {
+    throw new Error("Problem not found");
+  }
+  return problem;
+}

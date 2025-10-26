@@ -1,4 +1,3 @@
-// src/app/(main)/problems/[problemId]/page.tsx
 import Link from 'next/link';
 import { prisma } from '@/lib/prisma/userService';
 import { getServerSession } from 'next-auth';
@@ -53,36 +52,31 @@ export default async function ProblemDetailPage({
 
   const getDifficultyColor = (difficulty: string) => {
     switch (difficulty) {
-      case 'EASY': return 'bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-200 border-green-200 dark:border-green-800/50';
-      case 'MEDIUM': return 'bg-yellow-100 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-200 border-yellow-200 dark:border-yellow-800/50';
-      case 'HARD': return 'bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-200 border-red-200 dark:border-red-800/50';
+      // FIX: Changed text-X-900 to text-X-800 for better contrast on bg-X-100 in light theme
+      case 'EASY': return 'bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-50 border-green-200 dark:border-green-800/50';
+      case 'MEDIUM': return 'bg-yellow-100 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-50 border-yellow-200 dark:border-yellow-800/50';
+      case 'HARD': return 'bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-50 border-red-200 dark:border-red-800/50';
       default: return 'bg-gray-100 dark:bg-gray-900/20 text-gray-800 dark:text-gray-200 border-gray-200 dark:border-gray-800/50';
     }
   };
 
   const getScoreColor = (score: number) => {
-    if (score >= 80) return 'bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-200';
-    if (score >= 60) return 'bg-yellow-100 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-200';
-    return 'bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-200';
+    // FIX: Changed text-X-900 to text-X-800 for better contrast on bg-X-100 in light theme
+    if (score >= 80) return 'bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-50';
+    if (score >= 60) return 'bg-yellow-100 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-50';
+    return 'bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-50';
+  };
+
+  const getScoreTextColor = (score: number) => {
+    if (score >= 80) return 'text-green-600 dark:text-green-400';
+    if (score >= 60) return 'text-yellow-600 dark:text-yellow-400';
+    return 'text-red-600 dark:text-red-400';
   };
 
   return (
     <>
-    <NavBar/>    
+    <NavBar/>    
     <div className="min-h-screen bg-gradient-to-br from-background to-secondary/20">
-      {/* Header Section */}
-      <header className="bg-card shadow-sm border-b border-border flex justify-between items-center px-8 py-4">
-        <Link 
-          href="/problems" 
-          className="inline-flex items-center text-primary hover:text-primary/80 font-medium transition-colors"
-        >
-          <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
-          Back to All Problems
-        </Link>
-        <ThemeToggle />
-      </header>
 
       <div className="max-w-6xl mx-auto px-8 py-8">
         <div className="flex items-start justify-between mb-8">
@@ -148,8 +142,9 @@ export default async function ProblemDetailPage({
                 </div>
                 <ul className="space-y-3">
                   {requirements.functional_requirements.map((req, idx) => (
-                    <li key={idx} className="flex items-start text-muted-foreground">
-                      <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-300 font-semibold text-sm mr-3 flex-shrink-0 mt-0.5">
+                    <li key={idx} className="flex items-start text-foreground/90">
+                      {/* FIX: Changed text-green-900 to text-green-800 for better light theme contrast on bg-green-100 */}
+                      <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-50 font-semibold text-sm mr-3 flex-shrink-0 mt-0.5">
                         {idx + 1}
                       </span>
                       <span className="text-base">{req}</span>
@@ -172,8 +167,9 @@ export default async function ProblemDetailPage({
                 </div>
                 <ul className="space-y-3">
                   {requirements.non_functional_requirements.map((req, idx) => (
-                    <li key={idx} className="flex items-start text-muted-foreground">
-                      <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-purple-100 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 font-semibold text-sm mr-3 flex-shrink-0 mt-0.5">
+                    <li key={idx} className="flex items-start text-foreground/90">
+                      {/* FIX: Changed text-purple-900 to text-purple-800 for better light theme contrast on bg-purple-100 */}
+                      <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-purple-100 dark:bg-purple-900/20 text-purple-800 dark:text-purple-50 font-semibold text-sm mr-3 flex-shrink-0 mt-0.5">
                         {idx + 1}
                       </span>
                       <span className="text-base">{req}</span>
@@ -195,7 +191,7 @@ export default async function ProblemDetailPage({
                   <h2 className="text-2xl font-bold text-foreground">Expected Scale</h2>
                 </div>
                 <div className="bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800/50 rounded-lg p-4">
-                  <p className="text-muted-foreground font-medium text-base">{requirements.scale}</p>
+                  <p className="text-foreground/90 font-medium text-base">{requirements.scale}</p>
                 </div>
               </div>
             )}
@@ -213,7 +209,7 @@ export default async function ProblemDetailPage({
                 </div>
                 <ul className="space-y-3">
                   {requirements.constraints.map((constraint, idx) => (
-                    <li key={idx} className="flex items-start text-muted-foreground">
+                    <li key={idx} className="flex items-start text-foreground/90">
                       <svg className="w-5 h-5 text-orange-500 dark:text-orange-400 mr-3 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
                         <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                       </svg>

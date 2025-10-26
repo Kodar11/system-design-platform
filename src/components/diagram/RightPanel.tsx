@@ -1,9 +1,11 @@
 // src/components/diagram/RightPanel.tsx
 "use client";
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { useForm, Controller, Control, UseFormRegister, UseFormWatch, FieldValues } from 'react-hook-form';
 import { useDiagramStore } from '@/store/diagramStore';
+import { AlertCircle } from 'lucide-react';
+import { calculateNodeCostAndErrors } from '@/store/diagramStore';
 
 interface MetadataConfig {
   label?: string;
@@ -12,7 +14,14 @@ interface MetadataConfig {
   sub_options?: Record<string, unknown>;
   configs?: Record<string, unknown>;
   default?: string | number | boolean;
+  required?: boolean;
+  cost_factor?: number;
   [key: string]: unknown;
+}
+
+interface ErrorItem {
+  field: string;
+  message: string;
 }
 
 interface DynamicFormProps {
@@ -21,9 +30,10 @@ interface DynamicFormProps {
   metadata: Record<string, unknown>;
   watch: UseFormWatch<FieldValues>;
   prefix?: string;
+  errors?: ErrorItem[];
 }
 
-const DynamicForm = ({ control, register, metadata, watch, prefix = '' }: DynamicFormProps) => {
+const DynamicForm = ({ control, register, metadata, watch, prefix = '', errors = [] }: DynamicFormProps) => {
   if (!metadata) return null;
 
   return (
@@ -31,12 +41,20 @@ const DynamicForm = ({ control, register, metadata, watch, prefix = '' }: Dynami
       {Object.entries(metadata).map(([key, config]: [string, unknown]) => {
         const configData = config as MetadataConfig;
         const fieldName = prefix ? `${prefix}.${key}` : key;
+        const fieldHasError = errors.some(e => e.field === fieldName);
+        const inputClass = `w-full p-3 border rounded-md focus:outline-none bg-background text-foreground ${
+          fieldHasError 
+            ? 'border-destructive focus:ring-2 focus:ring-destructive' 
+            : 'border-input focus:outline-none focus:ring-2 focus:ring-primary'
+        }`;
 
         // Handle dropdowns with options
         if (configData.options) {
           return (
             <div key={fieldName} className="flex flex-col">
-              <label className="text-sm font-medium text-foreground mb-2">{String(configData.label || key)}</label>
+              <label className={`text-sm font-medium mb-2 ${fieldHasError ? 'text-destructive' : 'text-foreground'}`}>
+                {String(configData.label || key)}
+              </label>
               <Controller
                 name={fieldName}
                 control={control}
@@ -44,7 +62,7 @@ const DynamicForm = ({ control, register, metadata, watch, prefix = '' }: Dynami
                 render={({ field }) => (
                   <select
                     {...field}
-                    className="w-full p-3 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-background text-foreground"
+                    className={inputClass}
                   >
                     {Array.isArray(configData.options) && configData.options.map((option: string) => (
                       <option key={option} value={option}>
@@ -70,6 +88,7 @@ const DynamicForm = ({ control, register, metadata, watch, prefix = '' }: Dynami
                         metadata={selectedConfig as Record<string, unknown>}
                         watch={watch}
                         prefix={fieldName}
+                        errors={errors}
                       />
                     ) : null;
                   })()}
@@ -83,7 +102,9 @@ const DynamicForm = ({ control, register, metadata, watch, prefix = '' }: Dynami
         if (configData.type) {
           return (
             <div key={fieldName} className="flex flex-col">
-              <label className="text-sm font-medium text-foreground mb-2">{String(configData.label || key)}</label>
+              <label className={`text-sm font-medium mb-2 ${fieldHasError ? 'text-destructive' : 'text-foreground'}`}>
+                {String(configData.label || key)}
+              </label>
               {configData.type === 'boolean' ? (
                 <Controller
                   name={fieldName}
@@ -94,7 +115,7 @@ const DynamicForm = ({ control, register, metadata, watch, prefix = '' }: Dynami
                       type="checkbox"
                       checked={field.value as boolean}
                       onChange={(e) => field.onChange(e.target.checked)}
-                      className="h-5 w-5 text-primary border-input rounded focus:ring-primary bg-background"
+                      className={`${inputClass} h-5 w-5 text-primary rounded focus:ring-destructive bg-background ${fieldHasError ? 'border-destructive' : 'border-input'}`}
                     />
                   )}
                 />
@@ -105,7 +126,7 @@ const DynamicForm = ({ control, register, metadata, watch, prefix = '' }: Dynami
                     valueAsNumber: configData.type === 'number',
                   })}
                   defaultValue={String(configData.default || '')}
-                  className="w-full p-3 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-background text-foreground"
+                  className={inputClass}
                 />
               )}
             </div>
@@ -125,6 +146,7 @@ const DynamicForm = ({ control, register, metadata, watch, prefix = '' }: Dynami
                 metadata={(configData.configs || configData.sub_options) as Record<string, unknown>}
                 watch={watch}
                 prefix={fieldName}
+                errors={errors}
               />
             </>
           );
@@ -143,6 +165,7 @@ const DynamicForm = ({ control, register, metadata, watch, prefix = '' }: Dynami
                 metadata={configData as Record<string, unknown>}
                 watch={watch}
                 prefix={fieldName}
+                errors={errors}
               />
             </>
           );
@@ -156,9 +179,18 @@ const DynamicForm = ({ control, register, metadata, watch, prefix = '' }: Dynami
 
 export const RightPanel = () => {
   const selectedNode = useDiagramStore((state) => state.selectedNode);
+  const { nodeErrors } = useDiagramStore();
   const updateNodeProperties = useDiagramStore((state) => state.updateNodeProperties);
 
   const { register, reset, control, watch } = useForm<FieldValues>();
+
+  const currentErrors = selectedNode ? nodeErrors[selectedNode.id] || [] : [];
+
+  const nodeCost = useMemo(() => {
+    if (!selectedNode?.data?.metadata) return 0;
+    const { cost } = calculateNodeCostAndErrors(selectedNode.data, selectedNode.data.metadata);
+    return cost;
+  }, [selectedNode]);
 
   useEffect(() => {
     if (selectedNode) {
@@ -180,32 +212,61 @@ export const RightPanel = () => {
 
   if (!selectedNode) {
     return (
-      <aside className="w-80 p-6 bg-muted border-l border-border">
-        <p className="text-muted-foreground italic">Select a component to edit its properties.</p>
+      <aside className="w-80 bg-card border-l border-border shadow-lg flex flex-col">
+        <div className="p-6 border-b border-border">
+          <h3 className="text-lg font-semibold text-foreground">Properties</h3>
+        </div>
+        <div className="flex-1 p-6 flex items-center justify-center">
+          <p className="text-muted-foreground italic text-center">Select a component to edit its properties.</p>
+        </div>
       </aside>
     );
   }
 
   return (
-    <aside className="w-80 p-6 bg-card border-l border-border shadow-lg">
-      <h3 className="text-xl font-bold text-foreground mb-6">Edit {selectedNode.data.label}</h3>
-      <div className="space-y-6">
-        <div className="flex flex-col space-y-2">
-          <label className="text-sm font-medium text-foreground">Name</label>
-          <input
-            {...register('label')}
-            className="w-full p-3 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-background text-foreground"
-          />
-        </div>
+    <aside className="w-80 bg-card border-l border-border shadow-lg flex flex-col">
+      <div className="p-6 border-b border-border">
+        <h3 className="text-xl font-bold text-foreground">Edit {selectedNode.data.label}</h3>
+      </div>
+      <div className="flex-1 p-6 overflow-y-auto">
+        <div className="space-y-6">
+          <div className="flex flex-col space-y-2">
+            <label className="text-sm font-medium text-foreground">Name</label>
+            <input
+              {...register('label')}
+              className="w-full p-3 border border-input rounded-md focus:outline-none focus:ring-2 focus:ring-primary bg-background text-foreground shadow-sm"
+            />
+          </div>
+          <div className="p-3 bg-muted rounded-lg border border-border/50">
+            <p className="text-sm font-medium text-foreground">Estimated Monthly Cost: <span className="text-primary font-semibold">${nodeCost.toFixed(2)}</span></p>
+          </div>
 
-        {selectedNode.data.metadata && (
-          <DynamicForm
-            control={control}
-            register={register}
-            metadata={selectedNode.data.metadata}
-            watch={watch}
-          />
-        )}
+          {selectedNode.data.metadata && (
+            <DynamicForm
+              control={control}
+              register={register}
+              metadata={selectedNode.data.metadata}
+              watch={watch}
+              errors={currentErrors}
+            />
+          )}
+
+          {currentErrors.length > 0 && (
+            <div className="bg-destructive/10 border border-destructive/20 rounded-md p-4 shadow-sm">
+              <h4 className="font-semibold text-destructive mb-3 flex items-center">
+                <AlertCircle className="w-4 h-4 mr-2" /> Configuration Issues
+              </h4>
+              <ul className="space-y-2 text-sm">
+                {currentErrors.map((err, index) => (
+                  <li key={index} className="flex items-start text-destructive">
+                    <AlertCircle className="w-3 h-3 mt-0.5 mr-2 flex-shrink-0" />
+                    <span>{err.message}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
       </div>
     </aside>
   );

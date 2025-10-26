@@ -3,6 +3,7 @@
 
 import React from "react";
 import Image from "next/image";
+import { useThemeStore } from '@/store/themeStore';
 
 interface Component {
   id: string;
@@ -18,6 +19,11 @@ interface ComponentPaletteProps {
 }
 
 export default function ComponentPalette({ components }: ComponentPaletteProps) {
+  const { theme } = useThemeStore();
+  
+  // Determine if we're in dark mode
+  const isDark = theme === 'dark' || (theme === 'system' && typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+
   const onDragStart = (event: React.DragEvent, nodeType: string, originalType: string, componentId: string, componentName: string, metadata: unknown, iconUrl: string | null) => {
     event.dataTransfer.setData("application/reactflow", JSON.stringify({ nodeType, originalType, componentId, componentName, metadata, iconUrl: iconUrl || `/assets/icons/${originalType}.svg` }));
     event.dataTransfer.effectAllowed = "move";
@@ -25,19 +31,36 @@ export default function ComponentPalette({ components }: ComponentPaletteProps) 
   };
 
   return (
-    <aside className="w-64 p-4 bg-gray-900 text-white flex flex-col gap-4" style={{ maxHeight: 'calc(100vh - 200px)', overflowY: 'auto' }}>
-      <h2 className="text-lg font-bold">Components</h2>
-      {components.map((comp) => (
-        <div
-          key={comp.id}
-          className="p-3 bg-gray-800 rounded-lg flex items-center gap-3 cursor-grab hover:bg-gray-700 transition-colors"
-          onDragStart={(event) => onDragStart(event, 'component', comp.type, comp.id, comp.name, comp.metadata, comp.iconUrl)}
-          draggable
-        >
-          <Image src={comp.iconUrl || "/assets/icons/default.svg"} alt={comp.name} width={24} height={24} />
-          <span>{comp.name}</span>
+    <aside className="w-64 bg-card border-r border-border shadow-lg flex flex-col">
+      <div className="p-4 border-b border-border">
+        <h2 className="text-lg font-bold text-foreground">Components</h2>
+      </div>
+      <div className="flex-1 p-4 overflow-y-auto">
+        <div className="flex flex-col gap-3">
+          {components.map((comp) => (
+            <div
+              key={comp.id}
+              className="p-3 bg-muted rounded-lg flex items-center gap-3 cursor-grab hover:bg-accent hover:text-accent-foreground transition-all duration-200 border border-border/50 hover:border-primary/30 hover:shadow-md"
+              onDragStart={(event) => onDragStart(event, 'component', comp.type, comp.id, comp.name, comp.metadata, comp.iconUrl)}
+              draggable
+            >
+              <div className="w-6 h-6 flex items-center justify-center bg-muted/30 dark:bg-muted/70 rounded p-1">
+                <Image 
+                  src={comp.iconUrl || "/assets/icons/default.svg"} 
+                  alt={comp.name} 
+                  width={20} 
+                  height={20}
+                  className={isDark ? "invert" : ""}
+                  style={{
+                    filter: isDark ? 'invert(1) brightness(2)' : 'none'
+                  }}
+                />
+              </div>
+              <span className="text-sm font-medium">{comp.name}</span>
+            </div>
+          ))}
         </div>
-      ))}
+      </div>
     </aside>
   );
 }

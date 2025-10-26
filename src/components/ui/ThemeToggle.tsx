@@ -27,7 +27,7 @@ export default function ThemeToggle() {
   return (
     <button
       onClick={toggleTheme}
-      className="p-2 rounded-full bg-muted text-muted-foreground hover:bg-accent transition-colors"
+      className="p-2 rounded-full bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors border border-border/50 hover:border-primary/30"
       title={`Switch to ${isDark ? 'light' : 'dark'} mode`}
     >
       {isDark ? <SunIcon className="h-5 w-5" /> : <MoonIcon className="h-5 w-5" />}

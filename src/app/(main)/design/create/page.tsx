@@ -3,7 +3,6 @@ import { redirect } from 'next/navigation';
 import { createDesign } from '@/app/actions';
 import { getServerSession } from 'next-auth';
 import { NEXT_AUTH_CONFIG } from '@/lib/nextAuthConfig';
-import ThemeToggle from '@/components/ui/ThemeToggle';
 import NavBar from '@/components/ui/NavBar';
 
 async function handleCreateDesign(formData: FormData) {
@@ -29,9 +28,7 @@ export default async function CreateDesignPage() {
     <>
     <NavBar/>
     <div className="min-h-screen bg-background py-8">
-      <header className="flex justify-end mb-8 px-4">
-        <ThemeToggle />
-      </header>
+
       <div className="container mx-auto max-w-3xl px-4">
         <div className="bg-card rounded-lg shadow-md p-6 md:p-8 border border-border">
           <div className="mb-6">

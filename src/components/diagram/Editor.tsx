@@ -88,6 +88,7 @@ export const Editor = () => {
     setEdges,
     currentEdgeConfig,
     toggleEdgeStyle,
+    computeCostsAndErrors,
   } = useDiagramStore();
   const { getNodes } = useReactFlow();
 
@@ -152,6 +153,11 @@ export const Editor = () => {
       flush();
     };
   }, [nodes, edges, reactFlowInstance, isProblemSolveMode, isFreeDesignMode, problemId]);
+
+  // Compute costs and errors on nodes change
+  useEffect(() => {
+    computeCostsAndErrors();
+  }, [nodes, computeCostsAndErrors]);
 
   // NEW: Global keyboard shortcuts (scoped to editor, ignore inputs)
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
@@ -302,7 +308,7 @@ export const Editor = () => {
   }, [toggleEdgeStyle]);
 
   return (
-    <div className="reactflow-wrapper bg-background" ref={reactFlowWrapper} style={{ position: 'relative', height: 'calc(100vh - 128px)', width: '100%' }} tabIndex={0}>
+    <div className="reactflow-wrapper bg-background" ref={reactFlowWrapper} style={{ position: 'relative', height: '100%', width: '100%' }} tabIndex={0}>
       <ReactFlow
         nodes={nodes}
         edges={edges}

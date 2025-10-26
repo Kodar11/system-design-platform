@@ -15,14 +15,14 @@ export default async function EditorPage({ params }: { params: Promise<{ problem
   });
 
   return (
-    <div className="flex flex-col h-screen">
+    <div className="flex flex-col h-screen bg-background">
       <FlowProvider>
         <TopBar />
         <div className="flex flex-1 overflow-hidden">
-          <Suspense fallback={<div>Loading components...</div>}>
+          <Suspense fallback={<div className="w-64 bg-card border-r border-border flex items-center justify-center"><div className="text-muted-foreground">Loading components...</div></div>}>
             <ComponentPalette components={components} />
           </Suspense>
-          <main className="flex-1 overflow-auto">
+          <main className="flex-1 overflow-hidden">
             <Editor />
           </main>
           <RightPanel />

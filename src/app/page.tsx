@@ -115,7 +115,7 @@ export default async function Home() {
                     <Sparkles className="ml-2 h-5 w-5" />
                   </Link>
                   <Link
-                    href="/solve"
+                    href="/problems"
                     className="inline-flex items-center justify-center px-8 py-4 text-lg font-semibold rounded-xl border-2 border-primary text-foreground hover:bg-primary/10 transition-all hover:scale-105 backdrop-blur-sm bg-background/40"
                   >
                     Practice Problems
@@ -160,7 +160,7 @@ export default async function Home() {
                 return (
                   <div
                     key={index}
-                    className="group relative bg-card/60 backdrop-blur-md border border-border/50 rounded-2xl p-8 hover:border-primary/50 transition-all hover:shadow-xl hover:scale-105"
+                    className="group relative bg-card/80 backdrop-blur-md border-2 border-border/70 rounded-2xl p-8 hover:border-primary/50 transition-all hover:shadow-xl hover:scale-105"
                   >
                     <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
                     <div className="relative">
@@ -194,8 +194,8 @@ export default async function Home() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
               {steps.map((step, index) => (
-                <div key={index} className="relative">
-                  <div className="bg-card/70 backdrop-blur-md border border-border/50 rounded-2xl p-8 hover:border-primary/50 transition-all hover:shadow-lg">
+                  <div key={index} className="relative">
+                    <div className="bg-card/80 backdrop-blur-md border-2 border-border/70 rounded-2xl p-8 hover:border-primary/50 transition-all hover:shadow-lg">
                     <div className="text-6xl font-bold text-primary/20 mb-4">
                       {step.number}
                     </div>
@@ -219,15 +219,15 @@ export default async function Home() {
         <section className="py-20 px-4 sm:px-6 lg:px-8">
           <div className="max-w-7xl mx-auto">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              <div className="text-center bg-card/60 backdrop-blur-md border border-border/50 rounded-2xl p-8">
+              <div className="text-center bg-card/80 backdrop-blur-md border-2 border-border/70 rounded-2xl p-8">
                 <div className="text-5xl font-bold text-primary mb-2">10K+</div>
                 <div className="text-lg text-muted-foreground">Active Users</div>
               </div>
-              <div className="text-center bg-card/60 backdrop-blur-md border border-border/50 rounded-2xl p-8">
+              <div className="text-center bg-card/80 backdrop-blur-md border-2 border-border/70 rounded-2xl p-8">
                 <div className="text-5xl font-bold text-primary mb-2">50K+</div>
                 <div className="text-lg text-muted-foreground">Designs Generated</div>
               </div>
-              <div className="text-center bg-card/60 backdrop-blur-md border border-border/50 rounded-2xl p-8">
+              <div className="text-center bg-card/80 backdrop-blur-md border-2 border-border/70 rounded-2xl p-8">
                 <div className="text-5xl font-bold text-primary mb-2">95%</div>
                 <div className="text-lg text-muted-foreground">Success Rate</div>
               </div>

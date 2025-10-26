@@ -4,7 +4,6 @@ import { prisma } from '@/lib/prisma/userService';
 import { getServerSession } from 'next-auth';
 import { NEXT_AUTH_CONFIG } from '@/lib/nextAuthConfig';
 import Link from 'next/link';
-import ThemeToggle from '@/components/ui/ThemeToggle';
 import NavBar from '@/components/ui/NavBar';
 
 interface DesignComponent {
@@ -55,9 +54,7 @@ export default async function DesignResultPage({ params }: { params: Promise<{ d
     <>
     <NavBar/>
     <div className="min-h-screen bg-background py-8">
-      <header className="flex justify-end mb-8 px-4">
-        <ThemeToggle />
-      </header>
+
       <div className="container mx-auto max-w-6xl px-4">
         {/* Header */}
         <div className="bg-card rounded-lg shadow-md p-6 mb-6 border border-border">
