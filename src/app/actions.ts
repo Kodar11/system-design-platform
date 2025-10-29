@@ -303,9 +303,12 @@ Evaluate now:`;
             throw new Error(`Solution evaluation failed: ${error.message}`);
         }
         
-        throw new Error("An unexpected error occurred during evaluation. Please try again.");
+        throw new Error("An unexpected error occurred during evaluation. Please try again.");   
     }
 }
+
+// Import the cloud services data
+import cloudServicesData from '@/lib/kbs/cloudServicesData.json';
 
 // Define the schema using the Type enum
 const designSchema = {
@@ -320,13 +323,14 @@ const designSchema = {
                 properties: {
                     id: { type: Type.STRING, description: "A unique, short identifier (e.g., 'c1', 'db-main')." },
                     name: { type: Type.STRING, description: "A human-readable name for the component (e.g., 'User Service', 'PostgreSQL DB')." },
-                    type: { type: Type.STRING, description: "The architectural category (e.g., 'Compute', 'Database', 'Cache')." },
-                    provider: { type: Type.STRING, description: "The cloud provider (e.g., 'AWS', 'Azure', 'GCP')." },
-                    service: { type: Type.STRING, description: "The specific service name (e.g., 'EC2', 'RDS', 'Cloud Run')." },
+                    type: { type: Type.STRING, description: "The architectural category (e.g., 'Compute', 'Database', 'Cache'). Use the 'category' from the cloud services data." },
+                    provider: { type: Type.STRING, description: "The cloud provider (e.g., 'AWS', 'Azure', 'GCP'). Use the exact 'provider' from the cloud services data." },
+                    service: { type: Type.STRING, description: "The specific service name (e.g., 'EC2', 'RDS', 'Cloud Run'). Use the exact 'name' from the cloud services data." },
                     purpose: { type: Type.STRING, description: "What this component does." },
-                    estimated_cost_per_month: { type: Type.NUMBER, description: "The estimated monthly cost in USD (must be a number)." },
+                    estimated_cost_per_month: { type: Type.NUMBER, description: "The estimated monthly cost in USD (must be a number). Use the exact 'monthlyRate' from the selected cloud service entry." },
+                    cloudServiceId: { type: Type.STRING, description: "The exact ID from the cloud services catalog (e.g., 'aws-ec2-t3-medium-ondemand')." },
                 },
-                required: ["id", "name", "type", "provider", "service", "purpose", "estimated_cost_per_month"],
+                required: ["id", "name", "type", "provider", "service", "purpose", "estimated_cost_per_month", "cloudServiceId"],
             },
         },
         connections: {
@@ -370,14 +374,27 @@ export async function createDesign(formData: FormData): Promise<string> {
     const prompt = `
         You are an expert System Design Architect. Based on the following requirements, generate a concise and optimal system design architecture. The design MUST be returned strictly as a JSON object matching the provided schema.
          
+        IMPORTANT CONSTRAINTS:
+        - You MUST select components ONLY from the provided CLOUD SERVICES CATALOG below. Do NOT invent, hallucinate, or use any services, providers, or pricing not listed here.
+        - For each component, map exactly to one entry in the catalog: use 'category' as 'type', 'provider' as 'provider', 'name' as 'service', 'monthlyRate' as 'estimated_cost_per_month', and the full 'id' as 'cloudServiceId'.
+        - Create a short unique internal ID (e.g., 'c1', 'db1') for the 'id' field used in connections.
+        - Infer and describe the 'purpose' based on the component's role in fulfilling the requirements.
+        - Choose the most appropriate term (e.g., On-Demand, 1-Year) for each service based on the budget and scale to optimize costs.
+        - The total_estimated_cost_per_month MUST fit within the budget constraint. Prioritize cost-effective options while meeting requirements.
+        - Use 4-8 components maximum for a balanced architecture.
+        - Connections must form a logical flow (e.g., frontend → API → database).
+         
+        CLOUD SERVICES CATALOG (use ONLY these entries):
+        ${JSON.stringify(cloudServicesData, null, 2)}
+         
         Requirements:
         - Application Type: ${applicationType}
         - Target Scale: ${targetScale}
         - Key Features: ${keyFeatures}
         - Non-Functional Requirements: ${nonFunctionalRequirements}
-        - Budget: ${budget}
+        - Budget Constraint: ${budget} (total_estimated_cost_per_month must fit within this range)
          
-        Ensure all component 'id' fields are unique and connections reference these IDs. Use a major cloud provider (e.g., AWS, Azure, GCP).
+        Ensure all component 'id' fields are unique and connections reference these IDs.
     `;
 
     try {
@@ -405,6 +422,16 @@ export async function createDesign(formData: FormData): Promise<string> {
             throw new Error("AI response did not match expected schema.");
         }
 
+        // Additional validation: Ensure total cost fits budget roughly (parse budget range)
+        const budgetMatch = budget.match(/\$(\d+)-?\$?(\d*)/);
+        if (budgetMatch) {
+            const minBudget = parseInt(budgetMatch[1], 10);
+            const maxBudget = budgetMatch[2] ? parseInt(budgetMatch[2], 10) : Infinity;
+            if (jsonResponse.total_estimated_cost_per_month < minBudget || jsonResponse.total_estimated_cost_per_month > maxBudget) {
+                throw new Error("Generated design exceeds budget constraints.");
+            }
+        }
+
         // 3. Save the design to the database
         const design = await prisma.design.create({
             data: {
@@ -427,6 +454,127 @@ export async function createDesign(formData: FormData): Promise<string> {
         throw new Error("An unexpected error occurred during design generation.");
     }
 }
+
+// // Define the schema using the Type enum
+// const designSchema = {
+//     type: Type.OBJECT,
+//     properties: {
+//         design_rationale: { type: Type.STRING, description: "A brief, 2-3 sentence explanation of the chosen architecture." },
+//         components: {
+//             type: Type.ARRAY,
+//             description: "An array of architectural components for the design.",
+//             items: {
+//                 type: Type.OBJECT,
+//                 properties: {
+//                     id: { type: Type.STRING, description: "A unique, short identifier (e.g., 'c1', 'db-main')." },
+//                     name: { type: Type.STRING, description: "A human-readable name for the component (e.g., 'User Service', 'PostgreSQL DB')." },
+//                     type: { type: Type.STRING, description: "The architectural category (e.g., 'Compute', 'Database', 'Cache')." },
+//                     provider: { type: Type.STRING, description: "The cloud provider (e.g., 'AWS', 'Azure', 'GCP')." },
+//                     service: { type: Type.STRING, description: "The specific service name (e.g., 'EC2', 'RDS', 'Cloud Run')." },
+//                     purpose: { type: Type.STRING, description: "What this component does." },
+//                     estimated_cost_per_month: { type: Type.NUMBER, description: "The estimated monthly cost in USD (must be a number)." },
+//                 },
+//                 required: ["id", "name", "type", "provider", "service", "purpose", "estimated_cost_per_month"],
+//             },
+//         },
+//         connections: {
+//             type: Type.ARRAY,
+//             description: "An array of connections between components.",
+//             items: {
+//                 type: Type.OBJECT,
+//                 properties: {
+//                     source: { type: Type.STRING, description: "The ID of the source component." },
+//                     target: { type: Type.STRING, description: "The ID of the target component." },
+//                     label: { type: Type.STRING, description: "The type of connection (e.g., 'HTTP', 'gRPC', 'Async')." },
+//                 },
+//                 required: ["source", "target", "label"],
+//             },
+//         },
+//         total_estimated_cost_per_month: { type: Type.NUMBER, description: "The sum of all component costs." },
+//     },
+//     required: ["design_rationale", "components", "connections", "total_estimated_cost_per_month"],
+// };
+
+// export async function createDesign(formData: FormData): Promise<string> {
+//     const session = await getServerSession(NEXT_AUTH_CONFIG);
+//     if (!session?.user?.id) {
+//         console.error("Session user ID not found:", session);
+//         throw new Error("Unauthorized or session user ID not found");
+//     }
+
+//     // 1. Get user input from form data
+//     const applicationType = formData.get('applicationType') as string;
+//     const targetScale = formData.get('targetScale') as string;
+//     const keyFeatures = formData.get('keyFeatures') as string;
+//     const nonFunctionalRequirements = formData.get('nonFunctionalRequirements') as string;
+//     const budget = formData.get('budget') as string;
+
+//     if (!applicationType || !targetScale || !keyFeatures || !nonFunctionalRequirements || !budget) {
+//         throw new Error("All design requirements must be provided.");
+//     }
+   
+//     // 2. Construct the prompt
+//     // The prompt is simpler because the schema defines the required structure.
+//     const prompt = `
+//         You are an expert System Design Architect. Based on the following requirements, generate a concise and optimal system design architecture. The design MUST be returned strictly as a JSON object matching the provided schema.
+         
+//         Requirements:
+//         - Application Type: ${applicationType}
+//         - Target Scale: ${targetScale}
+//         - Key Features: ${keyFeatures}
+//         - Non-Functional Requirements: ${nonFunctionalRequirements}
+//         - Budget: ${budget}
+         
+//         Ensure all component 'id' fields are unique and connections reference these IDs. Use a major cloud provider (e.g., AWS, Azure, GCP).
+//     `;
+
+//     try {
+//         // Use the recommended model: gemini-2.5-flash
+//         const result = await genAI.models.generateContent({
+//             model: "gemini-2.5-flash",
+//             contents: prompt,
+//             config: {
+//                 responseMimeType: "application/json",
+//                 responseSchema: designSchema,
+//             },
+//         });
+      
+//         const responseText = result?.text?.trim();
+
+//         if (!responseText) {
+//             throw new Error("AI response was empty.");
+//         }
+      
+//         // The response text is guaranteed to be JSON due to the configuration
+//         const jsonResponse = JSON.parse(responseText);
+
+//         // Basic validation to ensure schema compliance
+//         if (!jsonResponse.design_rationale || !jsonResponse.components || !Array.isArray(jsonResponse.components)) {
+//             throw new Error("AI response did not match expected schema.");
+//         }
+
+//         // 3. Save the design to the database
+//         const design = await prisma.design.create({
+//             data: {
+//                 userId: session.user.id,
+//                 name: `Design for ${applicationType} (${new Date().toISOString().split('T')[0]})`,
+//                 diagramData: jsonResponse,
+//                 isDeleted: false,
+//             },
+//         });
+      
+//         revalidatePath('/design'); // Invalidate cache for design list
+      
+//         return design.id;
+
+//     } catch (error: unknown) {
+//         console.error("Error generating or saving design:", error);
+//         if (error instanceof Error) {
+//             throw new Error(`Design generation failed: ${error.message}`);
+//         }
+//         throw new Error("An unexpected error occurred during design generation.");
+//     }
+// }
 const saltRounds = 10;
 
 /**

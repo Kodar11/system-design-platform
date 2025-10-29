@@ -98,6 +98,32 @@ model Component {
   isDeleted        Boolean @default(false)
 }
 
+model CloudService {
+  // Primary ID for the KBS entry, matching the spreadsheet ID (e.g., aws-ec2-t3-medium-ondemand)
+  id                    String      @id
+  provider              String      // e.g., AWS, Azure
+  category              String      // e.g., DATABASE, COMPUTE
+  name                  String      // e.g., EC2 t3.medium
+  term                  String      // e.g., On-Demand, 3-Year RI
+  shortDescription      String?
+  
+  // Costing Fields
+  pricingModelType      String      // e.g., RATE_HOURLY, AMORTIZE_UPFRONT (Used by algorithm to choose formula)
+  monthlyRate           Float       // THE FINAL, PRE-CALCULATED, STANDARDIZED MONTHLY COST
+  
+  // Raw Data Fields (Used by script/logic to calculate monthlyRate)
+  rawHourlyRate         Float?
+  rawConsumptionRate    String?     // Stored as string to hold unit info (e.g., "0.25/million reads")
+  upfrontFee            Float?
+  termInMonths          Int?
+
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
+
+  @@unique([id, term])
+  @@index([provider, category])
+}
+
 model Log {
   id           String   @id @default(uuid())
   userId       String
