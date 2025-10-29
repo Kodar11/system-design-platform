@@ -76,7 +76,7 @@ export default function VerifyEmailClient({ initialEmail }: VerifyEmailClientPro
       if (isValid) {
         await createUserAfterOtp(email, otp);
         setMessage("User created successfully!");
-        router.push("/login"); 
+        router.push("/login");
       } else {
         setError("Invalid or expired OTP. Please try again or resend OTP.");
       }
@@ -102,8 +102,9 @@ export default function VerifyEmailClient({ initialEmail }: VerifyEmailClientPro
               <EnvelopeIcon className="h-8 w-8 text-primary" />
             </div>
             <h1 className="text-4xl font-bold text-foreground mb-2">Verify Your Email</h1>
-            <p className="text-muted-foreground">We've sent a verification code to your email</p>
-          </div>
+            <p className="text-muted-foreground">
+              We&apos;ve sent a verification code to your email
+            </p>          </div>
 
           {/* Verification Form */}
           <div className="bg-card rounded-2xl shadow-xl border border-border p-8">
@@ -135,7 +136,7 @@ export default function VerifyEmailClient({ initialEmail }: VerifyEmailClientPro
 
             <form action={handleVerifyOtp} className="space-y-6">
               <input type="hidden" name="email" value={email} />
-              
+
               {/* OTP Input */}
               <div className="space-y-2">
                 <label htmlFor="otp" className="text-sm font-medium text-foreground">
@@ -180,11 +181,10 @@ export default function VerifyEmailClient({ initialEmail }: VerifyEmailClientPro
             <button
               onClick={handleResendOtp}
               disabled={resendCooldown > 0 || loading}
-              className={`w-full py-3 font-semibold rounded-lg transition-all duration-200 ${
-                resendCooldown > 0 || loading
+              className={`w-full py-3 font-semibold rounded-lg transition-all duration-200 ${resendCooldown > 0 || loading
                   ? "bg-muted text-muted-foreground cursor-not-allowed"
                   : "bg-accent text-accent-foreground hover:bg-accent/90 shadow-lg hover:shadow-xl"
-              }`}
+                }`}
             >
               {resendCooldown > 0 ? `Resend code in ${resendCooldown}s` : "Resend Verification Code"}
             </button>

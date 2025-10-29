@@ -12,16 +12,26 @@ export default async function ProblemsPage() {
 
   const problems = await prisma.problem.findMany({ where: { isDeleted: false } });
 
-  async function handleCreateProblem(formData: FormData) {
-    'use server';
-    const title = formData.get('title') as string;
-    const requirements = JSON.parse(formData.get('requirements') as string || '{}');
-    const difficulty = formData.get('difficulty') as 'EASY' | 'MEDIUM' | 'HARD';
-    await prisma.problem.create({
-      data: { title, requirements, difficulty, isDeleted: false },
-    });
-    redirect('/content/problems');
-  }
+async function handleCreateProblem(formData: FormData) {
+  'use server';
+  const title = formData.get('title') as string;
+  const requirements = JSON.parse(formData.get('requirements') as string || '{}');
+  const difficulty = formData.get('difficulty') as 'EASY' | 'MEDIUM' | 'HARD';
+  
+  await prisma.problem.create({
+    data: {
+      title,
+      requirements,
+      difficulty,
+      isDeleted: false,
+      initialRequirementsQa: [],
+      interviewQuestions: [],
+    },
+  });
+
+  redirect('/content/problems');
+}
+
 
   async function handleUpdateProblem(formData: FormData) {
     'use server';

@@ -87,7 +87,7 @@ export const BottomBar = () => {
       console.error('PNG export error:', error);
       alert(`PNG export failed: ${(error as Error).message}`);
     }
-  }, [reactFlowInstance]);
+  }, [reactFlowInstance, isDark]);
 
 
   const handleImport = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {

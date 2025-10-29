@@ -4,7 +4,6 @@ import { getServerSession } from 'next-auth';
 import { NEXT_AUTH_CONFIG } from '@/lib/nextAuthConfig';
 import { redirect } from 'next/navigation';
 import { notFound } from 'next/navigation';
-import ThemeToggle from '@/components/ui/ThemeToggle';
 import NavBar from '@/components/ui/NavBar';
 import Footer from '@/components/ui/Footer';
 
@@ -66,12 +65,6 @@ export default async function ProblemDetailPage({
     if (score >= 80) return 'bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-50';
     if (score >= 60) return 'bg-yellow-100 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-50';
     return 'bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-50';
-  };
-
-  const getScoreTextColor = (score: number) => {
-    if (score >= 80) return 'text-green-600 dark:text-green-400';
-    if (score >= 60) return 'text-yellow-600 dark:text-yellow-400';
-    return 'text-red-600 dark:text-red-400';
   };
 
   return (

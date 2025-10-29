@@ -1,9 +1,70 @@
-// src/components/diagram/ProblemQaModal.tsx
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, {
+  useState,
+  useEffect,
+  useRef,
+  useCallback,
+  useMemo,
+} from 'react';
 import { useForm, Controller } from 'react-hook-form';
 import { Save, X, CheckCircle, Mic, MicOff, Trash2 } from 'lucide-react';
+
+// ✅ Custom speech recognition type declarations
+interface SpeechRecognitionAlternative {
+  transcript: string;
+  confidence: number;
+}
+
+interface SpeechRecognitionResult {
+  isFinal: boolean;
+  0: SpeechRecognitionAlternative;
+  length: number;
+}
+
+interface SpeechRecognitionResultList {
+  length: number;
+  item(index: number): SpeechRecognitionResult;
+  [index: number]: SpeechRecognitionResult;
+}
+
+interface SpeechRecognitionEvent extends Event {
+  resultIndex: number;
+  results: SpeechRecognitionResultList;
+}
+
+interface SpeechRecognitionErrorEvent extends Event {
+  error:
+    | 'no-speech'
+    | 'aborted'
+    | 'audio-capture'
+    | 'network'
+    | 'not-allowed'
+    | 'service-not-allowed'
+    | 'bad-grammar'
+    | 'language-not-supported';
+}
+
+interface ExtendedSpeechRecognition {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  start: () => void;
+  stop: () => void;
+  abort: () => void;
+  onresult: ((event: SpeechRecognitionEvent) => void) | null;
+  onerror: ((event: SpeechRecognitionErrorEvent) => void) | null;
+  onend: (() => void) | null;
+}
+
+declare global {
+  interface Window {
+    SpeechRecognition: new () => ExtendedSpeechRecognition;
+    webkitSpeechRecognition: new () => ExtendedSpeechRecognition;
+  }
+}
+
+// ---------------------- Interfaces ----------------------
 
 interface QaItem {
   Q: string;
@@ -27,109 +88,111 @@ interface ProblemQaModalProps {
   onOpenChange: (open: boolean) => void;
 }
 
+// ---------------------- Component ----------------------
+
 export const ProblemQaModal: React.FC<ProblemQaModalProps> = ({
   qaData,
   problemTitle,
-  problemId,
   isOpen,
   onOpenChange,
 }) => {
   const [activeListeningIndex, setActiveListeningIndex] = useState<number | null>(null);
   const [recognitionSupported, setRecognitionSupported] = useState(false);
-  const recognitionRef = useRef<any>(null);
-  const isListeningRef = useRef(false);
+  const recognitionRef = useRef<ExtendedSpeechRecognition | null>(null);
+  const isListeningRef = useRef<boolean>(false);
 
-  // Cast qaData fields properly
-  const safeQaData = qaData ? {
-    initialRequirementsQa: (qaData.initialRequirementsQa as QaItem[]) || [],
-    interviewQuestions: (qaData.interviewQuestions as QaItem[]) || [],
-  } : null;
+  const safeQaData = qaData
+    ? {
+        initialRequirementsQa: qaData.initialRequirementsQa ?? [],
+        interviewQuestions: qaData.interviewQuestions ?? [],
+      }
+    : null;
 
-  const numQuestions = safeQaData?.interviewQuestions.length || 0;
+  const numQuestions = safeQaData?.interviewQuestions.length ?? 0;
 
-  // Use react-hook-form for answers management
   const { control, watch, setValue } = useForm<FormData>({
     defaultValues: {
       answers: new Array(numQuestions).fill(''),
     },
   });
 
-  // Watch answers for progress
-  const watchedAnswers = watch('answers') || [];
-  const completedAnswers = watchedAnswers.filter(a => a.trim().length > 0).length;
+  const { answers: watchedAnswers } = watch();
 
-  // Check SpeechRecognition support on mount
+const { memoizedAnswers, completedAnswers } = useMemo(() => {
+  const answers = watchedAnswers || [];
+  const completed = answers.filter(a => a.trim().length > 0).length;
+  return {
+    memoizedAnswers: answers,
+    completedAnswers: completed,
+  };
+}, [watchedAnswers]);
+
+
+  // ✅ Detect browser speech recognition support
   useEffect(() => {
     const supported = 'SpeechRecognition' in window || 'webkitSpeechRecognition' in window;
     setRecognitionSupported(supported);
   }, []);
 
-  // Stable onResult callback
-  const onResultCallback = useCallback((event: any) => {
-    if (activeListeningIndex === null) return;
+  // ✅ Speech result callback
+  const onResultCallback = useCallback(
+    (event: SpeechRecognitionEvent) => {
+      if (activeListeningIndex === null) return;
 
-    let transcript = '';
-    for (let i = event.resultIndex; i < event.results.length; i++) {
-      transcript += event.results[i][0].transcript;
-    }
-    
-    const currentAnswer = watchedAnswers[activeListeningIndex] || '';
-    const updatedAnswer = currentAnswer ? currentAnswer + ' ' + transcript.trim() : transcript.trim();
-    setValue(`answers.${activeListeningIndex}`, updatedAnswer);
-
-    // Auto-resize and focus textarea
-    setTimeout(() => {
-      const textarea = document.querySelector(`textarea[data-question="${activeListeningIndex}"]`) as HTMLTextAreaElement;
-      if (textarea) {
-        textarea.style.height = 'auto';
-        textarea.style.height = Math.min(textarea.scrollHeight, 300) + 'px';
+      let transcript = '';
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        transcript += event.results[i][0].transcript;
       }
-    }, 50);
-  }, [activeListeningIndex, setValue, watchedAnswers]);
 
-  // Speech Recognition setup
+      const currentAnswer = memoizedAnswers[activeListeningIndex] || '';
+      const updatedAnswer = currentAnswer
+        ? `${currentAnswer} ${transcript.trim()}`
+        : transcript.trim();
+      setValue(`answers.${activeListeningIndex}`, updatedAnswer);
+
+      setTimeout(() => {
+        const textarea = document.querySelector(
+          `textarea[data-question="${activeListeningIndex}"]`
+        ) as HTMLTextAreaElement | null;
+        if (textarea) {
+          textarea.style.height = 'auto';
+          textarea.style.height = `${Math.min(textarea.scrollHeight, 300)}px`;
+        }
+      }, 50);
+    },
+    [activeListeningIndex, setValue, memoizedAnswers]
+  );
+
+  // ✅ Setup speech recognition instance
   useEffect(() => {
     if (!recognitionSupported) return;
 
-    const SpeechRecognitionClass = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const SpeechRecognitionClass =
+      window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognitionClass) return;
 
-    recognitionRef.current = new SpeechRecognitionClass();
-    const recognition = recognitionRef.current;
-
+    const recognition = new SpeechRecognitionClass();
     recognition.continuous = true;
     recognition.interimResults = false;
     recognition.lang = 'en-US';
-
     recognition.onresult = onResultCallback;
+    recognitionRef.current = recognition;
 
-    recognition.onerror = (event: any) => {
+    recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
       console.error('Speech recognition error:', event.error);
-      
-      // Handle specific errors gracefully
       if (event.error === 'not-allowed') {
-        alert('Microphone access denied. Please allow microphone permission in your browser settings and reload the page.');
+        alert('Microphone access denied. Please allow microphone permissions.');
       } else if (event.error === 'network') {
-        // Network error - typically happens on HTTP (not HTTPS)
-        console.warn('Speech recognition requires HTTPS. Continuing without voice input.');
+        alert('Speech recognition requires HTTPS. Continuing without voice input.');
         setRecognitionSupported(false);
       } else if (event.error === 'no-speech') {
-        // User didn't speak - just log it, don't alert
-        console.log('No speech detected, continuing...');
-        return; // Don't stop listening
-      } else if (event.error === 'aborted') {
-        // User manually stopped - normal behavior
-        console.log('Speech recognition aborted by user');
-      } else {
-        console.warn(`Speech recognition error: ${event.error}`);
+        console.log('No speech detected.');
       }
-      
       stopListening();
     };
 
     recognition.onend = () => {
       if (isListeningRef.current && activeListeningIndex !== null) {
-        // Restart if still supposed to be listening
         try {
           recognition.start();
         } catch (e) {
@@ -142,23 +205,23 @@ export const ProblemQaModal: React.FC<ProblemQaModalProps> = ({
     };
 
     return () => {
-      if (recognition) {
-        try {
-          recognition.stop();
-        } catch (e) {
-          console.error('Error stopping recognition on cleanup:', e);
-        }
+      try {
+        recognition.stop();
+      } catch {
+        /* ignore */
       }
     };
   }, [recognitionSupported, onResultCallback, activeListeningIndex]);
 
+  // ---------------------- Voice Controls ----------------------
+
   const startListening = (questionIndex: number) => {
-    const recognition = recognitionRef.current;
     if (!recognitionSupported) {
-      alert('Speech recognition is not supported. On localhost, you need HTTPS. Use: npm run dev -- --experimental-https\n\nAlternatively, type your answers manually.');
+      alert('Speech recognition not supported or not on HTTPS.');
       return;
     }
 
+    const recognition = recognitionRef.current;
     if (recognition && !isListeningRef.current) {
       try {
         setActiveListeningIndex(questionIndex);
@@ -166,7 +229,7 @@ export const ProblemQaModal: React.FC<ProblemQaModalProps> = ({
         recognition.start();
       } catch (e) {
         console.error('Error starting recognition:', e);
-        alert('Failed to start microphone. Please check your permissions and ensure you are using HTTPS.');
+        alert('Could not start microphone. Check permissions.');
         stopListening();
       }
     }
@@ -189,28 +252,20 @@ export const ProblemQaModal: React.FC<ProblemQaModalProps> = ({
     if (activeListeningIndex === questionIndex) {
       stopListening();
     } else {
-      if (activeListeningIndex !== null) {
-        stopListening();
-      }
+      if (activeListeningIndex !== null) stopListening();
       setTimeout(() => startListening(questionIndex), 100);
     }
   };
 
-  const clearAnswer = (index: number) => {
-    setValue(`answers.${index}`, '');
-  };
-
+  const clearAnswer = (index: number) => setValue(`answers.${index}`, '');
   const handleClose = () => {
     stopListening();
     onOpenChange(false);
   };
 
-  useEffect(() => {
-    // Cleanup on unmount
-    return () => {
-      stopListening();
-    };
-  }, []);
+  useEffect(() => () => stopListening(), []);
+
+  // ---------------------- UI ----------------------
 
   if (!isOpen || !safeQaData) return null;
 
@@ -225,8 +280,12 @@ export const ProblemQaModal: React.FC<ProblemQaModalProps> = ({
                 <CheckCircle className="w-6 h-6 text-blue-600 dark:text-blue-400" />
               </div>
               <div>
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{problemTitle}</h2>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Interview Preparation - Answer questions to simulate a real interview</p>
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+                  {problemTitle}
+                </h2>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                  Interview Preparation — Answer questions to simulate a real interview
+                </p>
               </div>
             </div>
             <button
@@ -236,33 +295,36 @@ export const ProblemQaModal: React.FC<ProblemQaModalProps> = ({
               <X className="w-5 h-5" />
             </button>
           </div>
-          
-          {/* Progress Bar */}
+
+          {/* Progress */}
           {numQuestions > 0 && (
-            <div className="mt-6 w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
-              <div 
-                className="bg-gradient-to-r from-blue-500 to-blue-600 h-2 rounded-full transition-all duration-500 ease-out shadow-sm" 
-                style={{ width: `${(completedAnswers / numQuestions) * 100}%` }}
-              />
-            </div>
+            <>
+              <div className="mt-6 w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
+                <div
+                  className="bg-gradient-to-r from-blue-500 to-blue-600 h-2 rounded-full transition-all duration-500 ease-out shadow-sm"
+                  style={{ width: `${(completedAnswers / numQuestions) * 100}%` }}
+                />
+              </div>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-2 text-right">
+                {completedAnswers}/{numQuestions} answers completed
+              </p>
+            </>
           )}
-          <p className="text-sm text-gray-600 dark:text-gray-400 mt-2 text-right">
-            {completedAnswers}/{numQuestions} answers completed
-          </p>
         </div>
 
+        {/* Body */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
-          {/* Initial Requirements (Read-only) */}
+          {/* Initial Requirements */}
           <div>
-            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 text-gray-800 dark:text-gray-200">
-              <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-              </svg>
+            <h3 className="text-lg font-semibold mb-4 text-gray-800 dark:text-gray-200">
               Initial Requirements (Reference)
             </h3>
             <div className="space-y-4">
-              {safeQaData.initialRequirementsQa.map((item, index) => (
-                <div key={`initial-${index}`} className="border-l-4 border-blue-400 dark:border-blue-500 pl-4 bg-blue-50 dark:bg-blue-950/30 p-4 rounded-lg">
+              {safeQaData.initialRequirementsQa.map((item, i) => (
+                <div
+                  key={`init-${i}`}
+                  className="border-l-4 border-blue-400 dark:border-blue-500 pl-4 bg-blue-50 dark:bg-blue-950/30 p-4 rounded-lg"
+                >
                   <p className="font-semibold text-gray-900 dark:text-white">{item.Q}</p>
                   <p className="text-gray-600 dark:text-gray-300 mt-2">{item.A}</p>
                 </div>
@@ -272,20 +334,18 @@ export const ProblemQaModal: React.FC<ProblemQaModalProps> = ({
 
           {/* Interview Questions */}
           <div>
-            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2 text-gray-800 dark:text-gray-200">
-              <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-              </svg>
+            <h3 className="text-lg font-semibold mb-4 text-gray-800 dark:text-gray-200">
               Interview Questions (Your Answers)
             </h3>
             <div className="space-y-6">
               {safeQaData.interviewQuestions.map((item, index) => (
-                <div key={`interview-${index}`} className="space-y-4 p-5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm hover:shadow-md transition-all duration-200">
-                  <div className="flex items-start justify-between">
-                    <h4 className="font-semibold text-gray-900 dark:text-white flex-1 text-lg">
-                      Q{index + 1}: {item.Q}
-                    </h4>
-                  </div>
+                <div
+                  key={`interview-${index}`}
+                  className="space-y-4 p-5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 shadow-sm hover:shadow-md transition-all"
+                >
+                  <h4 className="font-semibold text-gray-900 dark:text-white text-lg">
+                    Q{index + 1}: {item.Q}
+                  </h4>
                   <Controller
                     name={`answers.${index}`}
                     control={control}
@@ -293,56 +353,50 @@ export const ProblemQaModal: React.FC<ProblemQaModalProps> = ({
                       <textarea
                         {...field}
                         data-question={index}
-                        placeholder={`Type your detailed answer for Q${index + 1}... or click the mic button to speak`}
-                        className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-h-[120px] resize-y text-base leading-relaxed shadow-sm"
-                        rows={4}
+                        placeholder={`Type your detailed answer for Q${index + 1}...`}
+                        className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 min-h-[120px] resize-y"
                       />
                     )}
                   />
                   <div className="flex flex-wrap gap-3 items-center">
-                    {/* Mic Button */}
+                    {/* Mic */}
                     <button
                       onClick={() => toggleListening(index)}
                       disabled={!recognitionSupported}
-                      className={`px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 border shadow-sm flex items-center gap-2 ${
+                      className={`px-4 py-2 text-sm font-medium rounded-lg flex items-center gap-2 border shadow-sm transition-all ${
                         activeListeningIndex === index
-                          ? 'bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800 hover:bg-red-200 dark:hover:bg-red-800 animate-pulse'
+                          ? 'bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800 animate-pulse'
                           : recognitionSupported
-                          ? 'bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800 hover:bg-green-200 dark:hover:bg-green-800'
-                          : 'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 border-gray-200 dark:border-gray-700 cursor-not-allowed'
+                          ? 'bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800'
+                          : 'bg-gray-100 dark:bg-gray-800 text-gray-400 border-gray-200 dark:border-gray-700 cursor-not-allowed'
                       }`}
-                      title={!recognitionSupported ? 'Speech recognition not supported in this browser' : activeListeningIndex === index ? 'Stop recording' : 'Start voice input'}
                     >
                       {activeListeningIndex === index ? (
                         <>
-                          <MicOff className="w-4 h-4" />
-                          Stop Recording
+                          <MicOff className="w-4 h-4" /> Stop Recording
                         </>
                       ) : (
                         <>
-                          <Mic className="w-4 h-4" />
-                          Voice Input
+                          <Mic className="w-4 h-4" /> Voice Input
                         </>
                       )}
                     </button>
 
                     <button
                       onClick={() => clearAnswer(index)}
-                      className="px-4 py-2 text-sm font-medium bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-300 rounded-lg hover:bg-red-200 dark:hover:bg-red-800 transition-all duration-200 border border-red-200 dark:border-red-800 shadow-sm flex items-center gap-1"
+                      className="px-4 py-2 text-sm font-medium bg-red-100 dark:bg-red-900/20 text-red-700 dark:text-red-300 rounded-lg border border-red-200 dark:border-red-800 shadow-sm flex items-center gap-1"
                     >
-                      <Trash2 className="w-4 h-4" />
-                      Clear
+                      <Trash2 className="w-4 h-4" /> Clear
                     </button>
 
                     {activeListeningIndex === index && (
-                      <span className="text-sm text-red-600 dark:text-red-400 flex items-center gap-1 animate-pulse">
-                        <span className="w-2 h-2 bg-red-600 dark:bg-red-400 rounded-full"></span>
-                        Listening...
+                      <span className="text-sm text-red-600 dark:text-red-400 animate-pulse">
+                        ● Listening...
                       </span>
                     )}
                   </div>
                   <p className="text-xs text-gray-500 dark:text-gray-400 text-right">
-                    {watchedAnswers[index]?.length || 0} / 1000 characters
+                    {memoizedAnswers[index]?.length || 0} / 1000 characters
                   </p>
                 </div>
               ))}
@@ -352,25 +406,17 @@ export const ProblemQaModal: React.FC<ProblemQaModalProps> = ({
 
         {/* Footer */}
         <div className="sticky bottom-0 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 p-6 flex justify-between items-center">
-          <div className="text-sm text-gray-500 dark:text-gray-400">
-            {recognitionSupported ? (
-              <span className="flex items-center gap-2">
-                <Mic className="w-4 h-4" />
-                Click the mic button to use voice input
-              </span>
-            ) : (
-              <span className="flex items-center gap-2">
-                <Mic className="w-4 h-4 opacity-50" />
-                Voice input requires HTTPS connection
-              </span>
-            )}
+          <div className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-2">
+            <Mic className="w-4 h-4" />
+            {recognitionSupported
+              ? 'Click the mic button to use voice input'
+              : 'Voice input requires HTTPS'}
           </div>
-          <button 
-            onClick={handleClose} 
-            className="px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-all duration-200 shadow-md hover:shadow-lg flex items-center gap-2"
+          <button
+            onClick={handleClose}
+            className="px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 shadow-md flex items-center gap-2"
           >
-            <Save className="w-4 h-4" />
-            Close
+            <Save className="w-4 h-4" /> Close
           </button>
         </div>
       </div>

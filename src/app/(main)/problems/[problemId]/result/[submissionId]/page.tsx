@@ -50,11 +50,6 @@ export default async function SubmissionResultPage({ params }: PageProps) {
     scalability_assessment?: string;
   };
 
-  const getScoreColor = (score: number) => {
-    if (score >= 80) return 'bg-green-100 dark:bg-green-900/20 text-green-900 dark:text-green-200';
-    if (score >= 60) return 'bg-yellow-100 dark:bg-yellow-900/20 text-yellow-900 dark:text-yellow-200';
-    return 'bg-red-100 dark:bg-red-900/20 text-red-900 dark:text-red-200';
-  };
 
   const getScoreTextColor = (score: number) => {
     if (score >= 80) return 'text-green-600 dark:text-green-400';
