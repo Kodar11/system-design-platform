@@ -695,11 +695,42 @@ async function seedComponents() {
 async function seedProblems() {
   console.log('Start seeding Problem table...');
 
+  // Interface removed to prevent TS-NODE syntax error. Data structure remains JSON.
+
   const problems = [
     // 1. REAL-TIME STOCK MARKET TICKER FEED (READ-HEAVY FOCUS)
     {
       title: 'Real-Time Stock Market Ticker Feed',
       difficulty: Difficulty.HARD,
+      
+      // Initial Requirements (Answered Clarification)
+      initialRequirementsQa: [
+        { Q: 'What is the expected read/write ratio?', A: 'Highly skewed towards read. Approx. 500:1 (500k reads / 1k writes).' },
+        { Q: 'Is eventual consistency acceptable for the live feed?', A: 'Yes, but historical data must be strongly consistent.' },
+        { Q: 'What is the required P99 Read Latency for the live feed?', A: 'Must be under 100 millisecond  s.' },
+      ],
+      
+      // Interview Questions (Unanswered for student, but includes Ideal Answer for AI/Report)
+      interviewQuestions: [
+        { 
+          Q: 'Justify your choice of database for storing the 5 years of immutable historical data.', 
+          IdealA: 'Given the need for strong consistency, immutability, and time-series access, a columnar database (like Cassandra or ScyllaDB) partitioned by time and indexed by stock ticker is optimal. Alternatively, a highly sharded relational database with specialized time-series extensions (like TimescaleDB for PostgreSQL) could be justified for strong consistency if write load isn\'t extreme.' 
+        },
+        { 
+          Q: 'Detail your caching strategy (placement, invalidation, and memory sizing) to meet the sub-100ms P99 latency goal.',
+          IdealA: 'A multi-layer caching strategy is required. Use a massive, sharded, in-memory cache cluster (e.g., Redis Cluster, sized to 256GB+) to hold all 10,000 live stock prices in memory. Use a "Write-Through/Write-Around" policy for live updates and a simple "Least Recently Used" (LRU) policy for historical data lookups to ensure the database load is minimized.' 
+        },
+        { 
+          Q: 'How does your CDN configuration specifically handle the delivery of real-time WebSocket/Stream data to millions of concurrent clients?', 
+          IdealA: 'The CDN must utilize an Edge Network (WebSocket proxying CDN, like Cloudflare/Akamai) to terminate WebSocket connections geographically close to the users. This significantly reduces latency and offloads the persistent connection state from the origin servers, directly addressing the global latency requirement.' 
+        },
+        { 
+          Q: 'Explain the primary cost-performance trade-off you made to remain within the $5,500 budget constraint.', 
+          IdealA: 'The primary trade-off is between the Cache and the Database. We maximize the Cache size (256GB+) to handle the 500k RPS read load, allowing us to use less expensive compute instances for the API tier and fewer (but highly provisioned) Read Replicas on the database. This shifts cost from database scaling (expensive) to memory (predictable and cheaper for read ops).' 
+        },
+      ],
+
+      // Existing requirements preserved
       requirements: {
         description: 'Design a system that ingests real-time stock price updates, stores historical data, and serves live ticker feeds to millions of concurrent users with minimal latency. **Primary goal: Sub-100ms P99 Read Latency.**',
         functional_requirements: [
@@ -719,8 +750,8 @@ async function seedProblems() {
           'System must handle burst load of new viewers without degradation.',
           'Latency requirements apply globally.'
         ],
-        budget_usd: 5500, // Budget Constraint
-        configuration_targets: { // Configuration Challenge Targets
+        budget_usd: 5500, 
+        configuration_targets: { 
           "Message Queue": {
             "partitions": { min: 5, max: 20 },
             "replication_factor": 3 
@@ -745,6 +776,35 @@ async function seedProblems() {
     {
       title: 'Industrial IoT Sensor Data Integration',
       difficulty: Difficulty.HARD,
+      
+      // Initial Requirements (Answered Clarification)
+      initialRequirementsQa: [
+        { Q: 'What is the primary metric of concern (e.g., latency, throughput)?', A: 'Data durability and write throughput (1M writes/sec).' },
+        { Q: 'How much temporary data loss is acceptable during a spike?', A: 'Zero data loss is the goal (must maintain durability during ingestion).' },
+        { Q: 'What is the required retention for raw sensor data?', A: '1 year in Object Storage.' },
+      ],
+      
+      // Interview Questions (Unanswered for student, but includes Ideal Answer for AI/Report)
+      interviewQuestions: [
+        { 
+          Q: 'Justify your choice of message queue/stream (e.g., Kafka vs. Kinesis) and explain how you sized the number of partitions to handle 1M writes/sec.', 
+          IdealA: 'Kafka or Kinesis is mandatory for durability and high throughput. The calculation requires $\text{WriteRate / (MaxThroughputPerPartition)}$. For 1M writes/sec, and assuming a maximum of $20\text{k}$ messages per partition, we need a minimum of 50 partitions. This parallelization is crucial for high-velocity ingestion.'
+        },
+        { 
+          Q: 'Describe your database sharding strategy and data model to optimize for time-series write performance.', 
+          IdealA: 'A NoSQL time-series database (like Cassandra or DynamoDB) is necessary. The sharding key should be a composite of $\text{Sensor ID}$ and $\text{Time Bucket (e.g., day/hour)}$. This ensures sequential writes stay local on a single node, maximizing write performance while distributing the overall data load across the cluster.' 
+        },
+        { 
+          Q: 'Explain the flow control mechanism you implemented (e.g., Load Balancer rate limiting) to protect your system from backpressure during spikes.', 
+          IdealA: 'We must implement rate limiting (e.g., $1.2\text{M}$ RPS) on the API Gateway or Load Balancer layer to buffer against sudden traffic spikes. This protects the downstream Kafka cluster from being instantly overwhelmed, ensuring the durability goal is met. The stream processor service must also be configured with auto-scaling to consume data faster during persistent high load.' 
+        },
+        { 
+          Q: 'Why did you choose the specific replication factor for your message queue and database write nodes?', 
+          IdealA: 'We chose a $\text{Replication Factor (RF)}$ of 3 for the message queue and database. This ensures that even if one node fails (Node $\text{A}$), there are still two identical copies (Nodes $\text{B}$ and $\text{C}$) available. This meets the NFR of "Zero data loss" and "Fault tolerant" at the ingestion layer.' 
+        },
+      ],
+
+      // Existing requirements preserved
       requirements: {
         description: 'Design a reliable, fault-tolerant system to ingest, process, and store time-series data from 5 million industrial IoT sensors, where **0% data loss is unacceptable** during ingestion. **Primary goal: 1,000,000 writes/sec throughput.**',
         functional_requirements: [
@@ -764,8 +824,8 @@ async function seedProblems() {
           'Raw data retention: 1 year in Object Storage.',
           'Must use a dedicated Stream Processor component for aggregation.'
         ],
-        budget_usd: 8500, // Budget Constraint
-        configuration_targets: { // Configuration Challenge Targets
+        budget_usd: 8500, 
+        configuration_targets: { 
           "Message Queue": {
             "partitions": { min: 50, max: 100 },
             "replication_factor": 3
@@ -788,30 +848,32 @@ async function seedProblems() {
 
   // --- Problem Seeding Logic ---
   for (const problem of problems) {
+    // Note: We use findFirst because title is not unique, allowing updates
     const existing = await prisma.problem.findFirst({
       where: { title: problem.title },
     });
 
+    // Consolidated data object for upsert, ensuring the new fields are included.
+    const dataToSave = {
+      title: problem.title,
+      difficulty: problem.difficulty,
+      requirements: problem.requirements,
+      initialRequirementsQa: problem.initialRequirementsQa, 
+      interviewQuestions: problem.interviewQuestions,   
+      isDeleted: false,
+    };
+
+
     if (!existing) {
       await prisma.problem.create({
-        data: {
-          title: problem.title,
-          difficulty: problem.difficulty,
-          requirements: problem.requirements,
-          isDeleted: false,
-        },
+        data: dataToSave,
       });
       console.log(`Created problem: ${problem.title}`);
     } else {
       // Update existing problems to ensure new requirements are applied
       await prisma.problem.update({
         where: { id: existing.id },
-        data: {
-          title: problem.title,
-          difficulty: problem.difficulty,
-          requirements: problem.requirements,
-          isDeleted: false,
-        },
+        data: dataToSave,
       });
       console.log(`Updated problem: ${problem.title}`);
     }
@@ -819,6 +881,25 @@ async function seedProblems() {
 
   console.log('Seeding of Problem table finished.');
 }
+
+main()
+  .catch((e) => {
+    console.error(e);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });
+
+main()
+  .catch((e) => {
+    console.error(e);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });
+
 
 
 // --- MAIN EXECUTION ---

@@ -112,63 +112,85 @@ interface DiagramData {
     edges?: EdgeData[];
 }
 
+// Updated submitProblemSolution function in src/app/actions.ts
+// (Replace the existing function with this updated version)
+
+interface SubmittedAnswer {
+  question: string;
+  answer: string;
+}
+
 /**
  * Submits a problem solution and evaluates it using AI
  * @param problemId The ID of the problem being solved
  * @param diagramData The diagram data containing nodes and edges
+ * @param submittedAnswers Array of answers corresponding to interviewQuestions
  * @returns The submission ID to redirect to the result page
  */
 export async function submitProblemSolution(
-    problemId: string, 
-    diagramData: DiagramData
+  problemId: string, 
+  diagramData: DiagramData,
+  submittedAnswers: string[] // Array of strings, indexed to match interviewQuestions
 ): Promise<string> {
-    const session = await getServerSession(NEXT_AUTH_CONFIG);
-    if (!session?.user?.id) {
-        throw new Error("Unauthorized - Please log in to submit solutions");
-    }
+  const session = await getServerSession(NEXT_AUTH_CONFIG);
+  if (!session?.user?.id) {
+    throw new Error("Unauthorized - Please log in to submit solutions");
+  }
 
-    // 1. Validate input
-    if (!problemId || !diagramData) {
-        throw new Error("Missing required data: problemId and diagramData are required");
-    }
+  // 1. Validate input
+  if (!problemId || !diagramData) {
+    throw new Error("Missing required data: problemId and diagramData are required");
+  }
 
-    // 2. Get the problem from database
-    const problem = await prisma.problem.findUnique({
-        where: { id: problemId, isDeleted: false }
-    });
+  // Validate submitted answers length (optional, but ensure it's an array)
+  if (!Array.isArray(submittedAnswers)) {
+    submittedAnswers = [];
+  }
 
-    if (!problem) {
-        throw new Error("Problem not found or has been deleted");
-    }
+  // 2. Get the problem from database
+  const problem = await prisma.problem.findUnique({
+    where: { id: problemId, isDeleted: false }
+  });
 
-    // 3. Extract meaningful information from the diagram
-    const componentSummary = diagramData.nodes?.map((node) => {
-        const componentName = node.data?.label || node.data?.componentId || 'Unknown Component';
-        const componentType = node.type || 'generic';
-        const metadata = node.data?.metadata || {};
-        
-        return {
-            name: componentName,
-            type: componentType,
-            metadata: metadata,
-            position: node.position
-        };
-    }) || [];
+  if (!problem) {
+    throw new Error("Problem not found or has been deleted");
+  }
 
-    const connectionSummary = diagramData.edges?.map((edge) => {
-        const sourceNode = diagramData.nodes?.find((n) => n.id === edge.source);
-        const targetNode = diagramData.nodes?.find((n) => n.id === edge.target);
-        
-        return {
-            from: sourceNode?.data?.label || edge.source,
-            to: targetNode?.data?.label || edge.target,
-            type: edge.label || edge.type || 'connection',
-            id: edge.id
-        };
-    }) || [];
+  // 3. Extract meaningful information from the diagram
+  const componentSummary = diagramData.nodes?.map((node) => {
+    const componentName = node.data?.label || node.data?.componentId || 'Unknown Component';
+    const componentType = node.type || 'generic';
+    const metadata = node.data?.metadata || {};
+    
+    return {
+      name: componentName,
+      type: componentType,
+      metadata: metadata,
+      position: node.position
+    };
+  }) || [];
 
-    // 4. Build comprehensive evaluation prompt
-    const prompt = `
+  const connectionSummary = diagramData.edges?.map((edge) => {
+    const sourceNode = diagramData.nodes?.find((n) => n.id === edge.source);
+    const targetNode = diagramData.nodes?.find((n) => n.id === edge.target);
+    
+    return {
+      from: sourceNode?.data?.label || edge.source,
+      to: targetNode?.data?.label || edge.target,
+      type: edge.label || edge.type || 'connection',
+      id: edge.id
+    };
+  }) || [];
+
+  // 4. Build submitted answers with questions for context
+  const interviewQuestions = problem.interviewQuestions as { Q: string; A: string }[];
+  const answersWithQuestions: SubmittedAnswer[] = interviewQuestions.map((q, index) => ({
+    question: q.Q,
+    answer: submittedAnswers[index] || ''
+  }));
+
+  // 5. Build comprehensive evaluation prompt (UPDATED to include answers)
+  const prompt = `
 You are an expert System Design Evaluator with 15+ years of experience in distributed systems, cloud architecture, scalability, and software engineering best practices.
 
 PROBLEM TO SOLVE:
@@ -178,6 +200,16 @@ Difficulty Level: ${problem.difficulty}
 
 Requirements:
 ${JSON.stringify(problem.requirements, null, 2)}
+═══════════════════════════════════════════════════════════════════
+
+INTERVIEW QUESTIONS (for evaluation of verbal responses):
+═══════════════════════════════════════════════════════════════════
+${JSON.stringify(interviewQuestions, null, 2)}
+═══════════════════════════════════════════════════════════════════
+
+STUDENT'S SUBMITTED ANSWERS:
+═══════════════════════════════════════════════════════════════════
+${JSON.stringify(answersWithQuestions, null, 2)}
 ═══════════════════════════════════════════════════════════════════
 
 STUDENT'S SUBMITTED SOLUTION:
@@ -199,114 +231,110 @@ ${JSON.stringify({ components: componentSummary, connections: connectionSummary 
 EVALUATION CRITERIA:
 Evaluate the solution comprehensively based on these dimensions:
 
-1. REQUIREMENT FULFILLMENT (30 points)
-   - Does it address all functional requirements?
-   - Are non-functional requirements considered?
-   - Does it meet the scale requirements?
-   - Are constraints properly handled?
+1. REQUIREMENT FULFILLMENT (25 points)
+   - Does the diagram address all functional requirements?
+   - Are non-functional requirements considered in component choices?
+   - Does it meet the scale requirements through architecture?
 
 2. ARCHITECTURE & DESIGN (25 points)
    - Are the right architectural patterns used?
-   - Is the component selection appropriate?
+   - Is the component selection appropriate for the problem?
    - Is the design modular and maintainable?
-   - Are there proper separation of concerns?
+   - Do connections represent logical data/control flows?
 
-3. SCALABILITY & PERFORMANCE (25 points)
+3. SCALABILITY & PERFORMANCE (20 points)
    - Can it handle the required scale?
-   - Are there bottlenecks?
+   - Are there identified bottlenecks?
    - Is horizontal/vertical scaling considered?
-   - Are caching strategies appropriate?
-   - Is the database design scalable?
+   - Are caching/CDN strategies appropriate?
 
-4. RELIABILITY & AVAILABILITY (10 points)
-   - Are there single points of failure?
-   - Is redundancy properly implemented?
-   - Are failure scenarios considered?
-   - Is data replication/backup addressed?
+4. VERBAL EXPLANATION QUALITY (20 points)
+   - Do the submitted answers demonstrate deep understanding of choices?
+   - Are justifications technically sound and specific?
+   - Do answers address potential trade-offs and alternatives?
+   - Is the communication clear and structured?
 
-5. BEST PRACTICES (10 points)
-   - Security considerations
-   - Monitoring and observability
-   - Cost optimization
-   - Modern cloud-native approaches
+5. RELIABILITY & BEST PRACTICES (10 points)
+   - Single points of failure addressed?
+   - Security, monitoring, cost optimization considered?
+   - Modern cloud-native approaches used?
 
 INSTRUCTIONS:
-- Provide a score from 0-100 based on the criteria above
-- Give detailed, constructive feedback that helps the student improve
-- Be specific about what works well and what needs improvement
-- Consider the difficulty level when scoring
-- Highlight both technical correctness and practical considerations
-- Suggest specific improvements with examples
-- If critical components are missing, mention them explicitly
-- If the design has major flaws, explain why and how to fix them
+- Provide a score from 0-100 based on the criteria above (weight verbal answers appropriately for interview simulation).
+- Give detailed, constructive feedback that helps the student improve, referencing specific answers and diagram elements.
+- Be specific about what works well and what needs improvement in both diagram and verbal responses.
+- Consider the difficulty level when scoring.
+- Highlight technical correctness, practical considerations, and communication effectiveness.
+- Suggest specific improvements with examples for both architecture and explanations.
+- If critical components or poor justifications are missing, mention explicitly.
 
 Evaluate now:`;
 
-    try {
-        console.log('Starting AI evaluation for problem:', problemId);
-        
-        // 5. Call AI for evaluation
-        const result = await genAI.models.generateContent({
-            model: "gemini-2.0-flash-exp",
-            contents: prompt,
-            config: {
-                responseMimeType: "application/json",
-                responseSchema: evaluationSchema,
-            },
-        });
+  try {
+    console.log('Starting AI evaluation for problem:', problemId);
+    
+    // 6. Call AI for evaluation
+    const result = await genAI.models.generateContent({
+      model: "gemini-2.0-flash-exp",
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: evaluationSchema,
+      },
+    });
 
-        const responseText = result?.text?.trim();
-        if (!responseText) {
-            throw new Error("AI evaluation response was empty. Please try again.");
-        }
-
-        const evaluationResult = JSON.parse(responseText);
-        console.log('Evaluation completed with score:', evaluationResult.score);
-
-        // 6. Validate evaluation result
-        if (typeof evaluationResult.score !== 'number' || 
-            evaluationResult.score < 0 || 
-            evaluationResult.score > 100) {
-            throw new Error("Invalid evaluation score received");
-        }
-
-        if (!evaluationResult.feedback || !evaluationResult.strengths || !evaluationResult.improvements) {
-            throw new Error("Incomplete evaluation result received");
-        }
-
-        // 7. Save submission to database - Cast to Prisma's InputJsonValue
-        const submission = await prisma.submission.create({
-            data: {
-                userId: session.user.id,
-                problemId: problemId,
-                submittedDiagramData: diagramData as Prisma.InputJsonValue,
-                evaluationResult: evaluationResult as Prisma.InputJsonValue,
-            },
-        });
-
-        console.log('Submission saved successfully:', submission.id);
-
-        // 8. Return submission ID for redirect
-        return submission.id;
-
-    } catch (error: unknown) {
-        console.error("Error evaluating solution:", error);
-        
-        if (error instanceof Error) {
-            // Check for specific error types
-            if (error.message.includes('API key')) {
-                throw new Error('API configuration error. Please contact support.');
-            }
-            if (error.message.includes('quota') || error.message.includes('rate limit')) {
-                throw new Error('Service temporarily unavailable. Please try again in a few minutes.');
-            }
-            throw new Error(`Solution evaluation failed: ${error.message}`);
-        }
-        
-        throw new Error("An unexpected error occurred during evaluation. Please try again.");   
+    const responseText = result?.text?.trim();
+    if (!responseText) {
+      throw new Error("AI evaluation response was empty. Please try again.");
     }
-}
 
+    const evaluationResult = JSON.parse(responseText);
+    console.log('Evaluation completed with score:', evaluationResult.score);
+
+    // 7. Validate evaluation result
+    if (typeof evaluationResult.score !== 'number' || 
+      evaluationResult.score < 0 || 
+      evaluationResult.score > 100) {
+      throw new Error("Invalid evaluation score received");
+    }
+
+    if (!evaluationResult.feedback || !evaluationResult.strengths || !evaluationResult.improvements) {
+      throw new Error("Incomplete evaluation result received");
+    }
+
+    // 8. Save submission to database - UPDATED to include submittedAnswers
+    const submission = await prisma.submission.create({
+      data: {
+        userId: session.user.id,
+        problemId: problemId,
+        submittedDiagramData: diagramData as Prisma.InputJsonValue,
+        submittedAnswers: submittedAnswers as Prisma.InputJsonValue, // NEW: Save answers
+        evaluationResult: evaluationResult as Prisma.InputJsonValue,
+      },
+    });
+
+    console.log('Submission saved successfully:', submission.id);
+
+    // 9. Return submission ID for redirect
+    return submission.id;
+
+  } catch (error: unknown) {
+    console.error("Error evaluating solution:", error);
+    
+    if (error instanceof Error) {
+      // Check for specific error types
+      if (error.message.includes('API key')) {
+        throw new Error('API configuration error. Please contact support.');
+      }
+      if (error.message.includes('quota') || error.message.includes('rate limit')) {
+        throw new Error('Service temporarily unavailable. Please try again in a few minutes.');
+      }
+      throw new Error(`Solution evaluation failed: ${error.message}`);
+    }
+    
+    throw new Error("An unexpected error occurred during evaluation. Please try again.");
+  }
+}
 // Import the cloud services data
 import cloudServicesData from '@/lib/kbs/cloudServicesData.json';
 

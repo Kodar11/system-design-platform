@@ -1,4 +1,6 @@
-// src/components/diagram/TopBar.tsx
+// Updated src/components/diagram/TopBar.tsx
+// (Fixed TS error: Safe length access with explicit guard)
+
 'use client';
 
 import React, { useEffect, useState } from 'react';
@@ -9,6 +11,7 @@ import { submitProblemSolution } from '@/app/actions';
 import { getProblem } from '@/app/actions';
 import Link from 'next/link';
 import ThemeToggle from '@/components/ui/ThemeToggle';
+import { ProblemQaModal } from '@/components/diagram/ProblemQaModal'; // UPDATED: Import from diagram folder
 
 export const TopBar = () => {
   const { nodes, edges, totalCost, budget, hasCriticalErrors, computeCostsAndErrors, setProblemData, setBudget, setConfigurationTargets } = useDiagramStore();
@@ -19,12 +22,13 @@ export const TopBar = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [problemMode, setProblemMode] = useState(false);
   const [problemId, setProblemId] = useState<string | null>(null);
+  const [qaData, setQaData] = useState<{ initialRequirementsQa: any[]; interviewQuestions: any[] } | null>(null); // NEW: QA data
+  const [showQaModal, setShowQaModal] = useState(false); // NEW: Modal state
 
   const { undo, redo, pastStates, futureStates } = useDiagramStore.temporal.getState();
 
   // Detect problem mode based on URL
   useEffect(() => {
-    // This regex captures the ID after /problems/ and before the next slash
     const match = pathname.match(/^\/problems\/([^\/]+)(?:\/|$)/);
     if (match && match[1]) {
       const id = match[1];
@@ -37,7 +41,7 @@ export const TopBar = () => {
     }
   }, [pathname]);
 
-  // Load problem data
+  // Load problem data (UPDATED: Include QA fields)
   useEffect(() => {
     if (problemId) {
       getProblem(problemId)
@@ -47,6 +51,13 @@ export const TopBar = () => {
             setProblemData(reqs);
             setBudget(reqs.budget_usd);
             setConfigurationTargets(reqs.configuration_targets || {});
+            
+            // NEW: Set QA data (TS safe cast)
+            setQaData({
+              initialRequirementsQa: (problem.initialRequirementsQa as any[]) || [],
+              interviewQuestions: (problem.interviewQuestions as any[]) || [],
+            });
+            
             computeCostsAndErrors();
           }
         })
@@ -55,6 +66,21 @@ export const TopBar = () => {
         });
     }
   }, [problemId, setProblemData, setBudget, setConfigurationTargets, computeCostsAndErrors]);
+
+  // NEW: Get submitted answers from localStorage on submit
+  const getSubmittedAnswers = (): string[] => {
+    if (!problemId || !qaData?.interviewQuestions) return [];
+    const saved = localStorage.getItem(`qaAnswers_${problemId}`);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  };
 
   const handleSave = () => {
     if (reactFlowInstance) {
@@ -66,6 +92,7 @@ export const TopBar = () => {
 
   const handleFitView = () => reactFlowInstance?.fitView();
 
+  // UPDATED: Handle submit to include answers
   const handleSubmit = async () => {
     if (!problemId) {
       alert('Problem ID not found. Please return to problem page and try again.');
@@ -75,8 +102,18 @@ export const TopBar = () => {
       alert('Please add at least one component to your diagram before submitting.');
       return;
     }
+    const submittedAnswers = getSubmittedAnswers(); // NEW: Get answers
+    
+    // TS Fix: Safe length calculation
+    const numQuestions = qaData?.interviewQuestions?.length || 0;
+    if (submittedAnswers.length === 0 && numQuestions > 0) {
+      const confirmNoAnswers = window.confirm(
+        'No answers provided for interview questions. Proceed without verbal explanations?'
+      );
+      if (!confirmNoAnswers) return;
+    }
     const confirmed = window.confirm(
-      `You are about to submit your solution with ${nodes.length} components and ${edges.length} connections. Continue?`
+      `You are about to submit your solution with ${nodes.length} components, ${edges.length} connections, and ${submittedAnswers.length}/${numQuestions} answers. Continue?`
     );
     if (!confirmed) return;
 
@@ -95,7 +132,6 @@ export const TopBar = () => {
         target: edge.target,
         sourceHandle: edge.sourceHandle,
         targetHandle: edge.targetHandle,
-        // Convert ReactNode label to string
         label: typeof edge.label === 'string' ? edge.label : edge.label?.toString() || undefined,
         type: edge.type,
         animated: edge.animated,
@@ -111,8 +147,8 @@ export const TopBar = () => {
 
     try {
       setIsSubmitting(true);
-      console.log('Submitting diagram with data:', diagramData);
-      const submissionId = await submitProblemSolution(problemId, diagramData);
+      console.log('Submitting diagram with data and answers:', { diagramData, submittedAnswers });
+      const submissionId = await submitProblemSolution(problemId, diagramData, submittedAnswers); // UPDATED: Pass answers
       console.log('Submission successful, redirecting to result page:', submissionId);
       router.push(`/problems/${problemId}/result/${submissionId}`);
     } catch (error) {
@@ -123,19 +159,19 @@ export const TopBar = () => {
     }
   };
 
-  // NEW: Shared handlers
+  // ... (rest of the shared handlers remain the same: handleZoomToSelection, hasSelection, sharedControls)
+
   const handleZoomToSelection = () => {
     const selected = nodes.filter((n) => n.selected);
     if (selected.length > 0 && reactFlowInstance) {
       reactFlowInstance.fitView({ nodes: selected, padding: 0.25, duration: 600 });
     } else {
-      handleFitView(); // Fallback to full view
+      handleFitView();
     }
   };
 
   const hasSelection = nodes.some((n) => n.selected);
 
-  // === Shared toolbar elements (undo/redo/fit/zoom) ===
   const sharedControls = (
     <>
       <button
@@ -161,7 +197,6 @@ export const TopBar = () => {
       >
         ⤢
       </button>
-      {/* NEW: Zoom to Selection */}
       <button
         onClick={handleZoomToSelection}
         disabled={!hasSelection}
@@ -176,6 +211,9 @@ export const TopBar = () => {
   if (problemMode) {
     const isOverBudget = budget !== undefined && totalCost > budget;
     const submitDisabled = isSubmitting || nodes.length === 0 || (budget !== undefined && isOverBudget) || hasCriticalErrors;
+
+    // NEW: Problem title for modal
+    const problemTitle =  problemId || 'Problem';
 
     return (
       <div className="top-bar p-4 bg-card border-b border-border flex justify-between items-center shadow-sm">
@@ -199,6 +237,16 @@ export const TopBar = () => {
         </div>
 
         <div className="flex items-center gap-3">
+          {/* NEW: Q&A Button/Modal Trigger */}
+          {qaData && (
+            <button
+              onClick={() => setShowQaModal(true)}
+              className="px-4 py-2 border border-input bg-background text-foreground rounded-lg hover:bg-accent transition-colors"
+            >
+              Q&A Interview
+            </button>
+          )}
+
           {/* Stats */}
           <div className="flex items-center gap-2 px-3 py-2 bg-muted rounded-lg">
             <div className="flex items-center gap-1 text-sm text-foreground">
@@ -234,7 +282,6 @@ export const TopBar = () => {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
             </svg>
           </Link>
-          {/* Global Cost Tracking */}
           {budget !== undefined && (
             <div className="flex items-center gap-4 px-3 py-2 bg-muted rounded-lg">
               <div className={`text-sm font-medium ${isOverBudget ? 'text-destructive' : 'text-green-600'}`}>
@@ -288,11 +335,22 @@ export const TopBar = () => {
             )}
           </button>
         </div>
+
+        {/* NEW: Render the modal */}
+        {qaData && problemId && (
+          <ProblemQaModal
+            qaData={qaData}
+            problemTitle={problemTitle}
+            problemId={problemId}
+            isOpen={showQaModal}
+            onOpenChange={setShowQaModal}
+          />
+        )}
       </div>
     );
   }
 
-  // === Normal mode toolbar ===
+  // === Normal mode toolbar (unchanged) ===
   return (
     <div className="top-bar p-4 bg-secondary flex justify-between items-center">
       <Link
