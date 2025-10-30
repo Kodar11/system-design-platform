@@ -4,9 +4,12 @@ import { BottomBar } from '@/components/diagram/BottomBar';
 import ComponentPalette from '@/components/diagram/ComponentPalette';
 import { RightPanel } from '@/components/diagram/RightPanel';
 import FlowProvider from '@/components/diagram/FlowProvider';
-import { prisma } from '@/lib/prisma/userService';
 import { Editor } from '@/components/diagram/Editor';
 import { ModeInitializer } from '@/components/diagram/ModeInitializer';
+import { getCachedComponents } from '@/lib/cache/componentCache';
+
+// Enable ISR
+export const revalidate = 3600;
 
 export default async function EditorPage({ 
   params,
@@ -20,9 +23,8 @@ export default async function EditorPage({
   
   console.log("Problem_id:", _problemId, "Mode:", mode);
   
-  const components = await prisma.component.findMany({
-    orderBy: { name: "asc" },
-  });
+  // Use cached components
+  const components = await getCachedComponents();
 
   const interviewMode = mode === 'mock' ? 'mock' : mode === 'practice' ? 'practice' : 'practice';
 

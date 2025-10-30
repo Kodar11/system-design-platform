@@ -5,16 +5,18 @@ import { BottomBar } from '@/components/diagram/BottomBar';
 import ComponentPalette from '@/components/diagram/ComponentPalette';
 import { RightPanel } from '@/components/diagram/RightPanel';
 import FlowProvider from '@/components/diagram/FlowProvider';
-import { prisma } from '@/lib/prisma/userService';
 import { Editor } from '@/components/diagram/Editor';
+import { getCachedComponents } from '@/lib/cache/componentCache';
+
+// Enable ISR
+export const revalidate = 3600;
 
 export default async function EditorPage({ params }: { params: Promise<{ designId: string }> }) {
   const { designId: _designId } = await params;
   console.log("Design_id : ",_designId);
   
-  const components = await prisma.component.findMany({
-    orderBy: { name: "asc" },
-  });
+  // Use cached components
+  const components = await getCachedComponents();
 
   return (
     <div className="flex flex-col h-screen bg-background">

@@ -1,6 +1,5 @@
 // src/app/(main)/docs/[componentName]/page.tsx
 import Link from 'next/link';
-import { prisma } from '@/lib/prisma/userService';
 import { getServerSession } from 'next-auth';
 import { NEXT_AUTH_CONFIG } from '@/lib/nextAuthConfig';
 import { redirect } from 'next/navigation';
@@ -9,6 +8,19 @@ import ThemeToggle from '@/components/ui/ThemeToggle';
 import NavBar from '@/components/ui/NavBar';
 import ThemeAwareIcon from '@/components/ui/ThemeAwareIcon';
 import Footer from '@/components/ui/Footer';
+import { getCachedComponents, getCachedComponentByName } from '@/lib/cache/componentCache';
+
+// Enable ISR - revalidate every hour
+export const revalidate = 3600;
+
+// Generate static params for all components
+export async function generateStaticParams() {
+  const components = await getCachedComponents();
+  
+  return components.map((component) => ({
+    componentName: component.name,
+  }));
+}
 
 interface ComponentDetailsProps {
   params: Promise<{ componentName: string }>;
@@ -94,12 +106,8 @@ export default async function ComponentDetailsPage({ params }: ComponentDetailsP
     redirect('/api/auth/login');
   }
 
-  const component = await prisma.component.findFirst({
-    where: { 
-      name: componentName,
-      isDeleted: false 
-    },
-  });
+  // Use cached component lookup
+  const component = await getCachedComponentByName(componentName);
 
   if (!component) {
     notFound();
