@@ -1,7 +1,7 @@
 // src/components/diagram/Editor.tsx
 "use client";
 
-import React, { useCallback, useRef, useState, MouseEvent as ReactMouseEvent, useEffect } from 'react';
+import React, { useCallback, useRef, useState, MouseEvent as ReactMouseEvent, useEffect, useMemo, memo } from 'react';
 import ReactFlow, {
   Controls,
   Background,
@@ -16,10 +16,9 @@ import TextNode from './TextNode';
 import { usePathname } from 'next/navigation';
 import 'reactflow/dist/style.css';
 
-const nodeTypes = {
-  component: ComponentNode,
-  text: TextNode,
-};
+// Memoize node types to prevent unnecessary re-renders
+const MemoizedComponentNode = memo(ComponentNode);
+const MemoizedTextNode = memo(TextNode);
 
 const AlignmentGuides = ({ guides }: { guides: { vertical: number[]; horizontal: number[] } }) => {
   const { getViewport } = useReactFlow();
@@ -73,6 +72,12 @@ export const Editor = () => {
   const reactFlowWrapper = useRef<HTMLDivElement | null>(null);
   const reactFlowInstance = useReactFlow();
   const [guides, setGuides] = useState({ vertical: [] as number[], horizontal: [] as number[] });
+
+  // Memoize nodeTypes object to prevent recreation
+  const nodeTypes = useMemo(() => ({
+    component: MemoizedComponentNode,
+    text: MemoizedTextNode,
+  }), []);
 
   const {
     nodes,

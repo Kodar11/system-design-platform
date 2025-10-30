@@ -70,12 +70,11 @@ export const TopBar: React.FC = () => {
 
   const { undo, redo, pastStates, futureStates } = useDiagramStore.temporal.getState();
 
-  const { 
-    interviewMode, 
-    transcriptHistory,
-    componentBatchQueue,
-    interviewPhase,
-  } = useDiagramStore();
+  // ✅ Optimized: Selective subscriptions - only re-render when these specific values change
+  const interviewMode = useDiagramStore((state) => state.interviewMode);
+  const transcriptHistory = useDiagramStore((state) => state.transcriptHistory);
+  const componentBatchQueue = useDiagramStore((state) => state.componentBatchQueue);
+  const interviewPhase = useDiagramStore((state) => state.interviewPhase);
 
   // Detect problem mode from URL
   useEffect(() => {

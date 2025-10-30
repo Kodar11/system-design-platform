@@ -1,7 +1,7 @@
 // src/components/diagram/RightPanel.tsx
 "use client";
 
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useCallback } from 'react';
 import { useForm, Controller, Control, UseFormRegister, UseFormWatch, FieldValues } from 'react-hook-form';
 import { useDiagramStore } from '@/store/diagramStore';
 import { AlertCircle } from 'lucide-react';
@@ -186,13 +186,18 @@ const DynamicForm = ({ control, register, metadata, watch, prefix = '', errors =
 };
 
 export const RightPanel = () => {
+  // ✅ Optimized: Selective subscriptions - only re-render when these specific values change
   const selectedNode = useDiagramStore((state) => state.selectedNode);
-  const { nodeErrors } = useDiagramStore();
   const updateNodeProperties = useDiagramStore((state) => state.updateNodeProperties);
+  const nodeErrors = useDiagramStore((state) => state.nodeErrors);
+  
+  // ✅ Optimized: Memoize errors to avoid re-computation
+  const currentErrors = useMemo(() => {
+    if (!selectedNode) return [];
+    return nodeErrors[selectedNode.id] || [];
+  }, [selectedNode, nodeErrors]);
 
   const { register, reset, control, watch } = useForm<FieldValues>();
-
-  const currentErrors = selectedNode ? nodeErrors[selectedNode.id] || [] : [];
 
   const nodeCost = useMemo(() => {
     if (!selectedNode?.data?.metadata) return 0;

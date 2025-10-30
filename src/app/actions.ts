@@ -776,15 +776,10 @@ export async function sendOtp(email: string, newUserData?: TempUserData) {
         const otp = await generateAndStoreOtp(emailLower, newUserData);
         console.log("Otp generated:", otp);
         
-        const transporter = nodemailer.createTransport({
-            host: process.env.EMAIL_SERVER_HOST,
-            port: parseInt(process.env.EMAIL_SERVER_PORT || "587"),
-            secure: process.env.EMAIL_SERVER_PORT === "465",
-            auth: {
-                user: process.env.EMAIL_SERVER_USER,
-                pass: process.env.EMAIL_SERVER_PASSWORD,
-            },
-        });
+        // Use pooled transporter for better performance
+        const { getEmailTransporter } = await import("@/lib/email/transporter");
+        const transporter = getEmailTransporter();
+        
         const mailOptions = {
             from: process.env.EMAIL_FROM,
             to: email,

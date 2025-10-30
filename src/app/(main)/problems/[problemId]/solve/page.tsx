@@ -4,8 +4,8 @@ import { BottomBar } from '@/components/diagram/BottomBar';
 import ComponentPalette from '@/components/diagram/ComponentPalette';
 import { RightPanel } from '@/components/diagram/RightPanel';
 import FlowProvider from '@/components/diagram/FlowProvider';
-import { Editor } from '@/components/diagram/Editor';
 import { ModeInitializer } from '@/components/diagram/ModeInitializer';
+import Editor from '@/components/diagram/EditorWrapper';
 import { getCachedComponents } from '@/lib/cache/componentCache';
 
 // Enable ISR
