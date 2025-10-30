@@ -12,12 +12,13 @@
     "vercel-build": "prisma generate && next build"
   },
   "prisma": {
-"seed": "node --loader ts-node/esm prisma/seed.ts"
-    },
+    "seed": "node --loader ts-node/esm prisma/seed.ts"
+  },
   "dependencies": {
     "@google/genai": "^1.25.0",
     "@heroicons/react": "^2.2.0",
     "@prisma/client": "^6.12.0",
+    "@tanstack/react-query": "^5.90.5",
     "bcryptjs": "^3.0.2",
     "html-to-image": "^1.11.13",
     "lucide-react": "^0.548.0",

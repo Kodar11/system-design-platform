@@ -6,14 +6,31 @@ import { redirect } from 'next/navigation';
 import { notFound } from 'next/navigation';
 import NavBar from '@/components/ui/NavBar';
 import Footer from '@/components/ui/Footer';
+import { getCachedProblems } from '@/lib/cache/problemCache';
+
+// Enable ISR - revalidate every hour
+export const revalidate = 3600;
+
+// Generate static paths for the most popular problems
+export async function generateStaticParams() {
+  const problems = await getCachedProblems();
+  
+  // Pre-generate first 20 problems (most popular)
+  return problems.slice(0, 20).map((problem) => ({
+    problemId: problem.id,
+  }));
+}
 
 export default async function ProblemDetailPage({ 
   params 
 }: { 
   params: Promise<{ problemId: string }> 
 }) {
-  const { problemId } = await params;
-  const session = await getServerSession(NEXT_AUTH_CONFIG);
+  // Parallel data fetching optimization
+  const [{ problemId }, session] = await Promise.all([
+    params,
+    getServerSession(NEXT_AUTH_CONFIG)
+  ]);
   
   if (!session?.user?.id) {
     redirect('/api/auth/login');

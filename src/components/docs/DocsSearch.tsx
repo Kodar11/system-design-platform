@@ -77,36 +77,37 @@ export default function DocsSearch({ components }: DocsSearchProps) {
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {filteredComponents.map((component) => (
-            <Link
+            <div
               key={component.id}
-              href={`/docs/${component.name}`}
               className="bg-card rounded-lg shadow hover:shadow-lg transition-shadow p-6 border border-border hover:bg-accent/50"
             >
-              <div className="flex items-start gap-4 mb-4">
-                <ThemeAwareIcon
-                  src={component.iconUrl || '/assets/icons/default.svg'}
-                  alt={component.name}
-                  width={48}
-                  height={48}
-                  className="flex-shrink-0"
-                />
-                <div className="flex-1">
-                  <h2 className="text-xl font-semibold text-foreground">{component.name}</h2>
-                  <p className="text-sm text-muted-foreground capitalize">{component.type}</p>
+              <Link href={`/docs/${component.name}`} className="block">
+                <div className="flex items-start gap-4 mb-4">
+                  <ThemeAwareIcon
+                    src={component.iconUrl || '/assets/icons/default.svg'}
+                    alt={component.name}
+                    width={48}
+                    height={48}
+                    className="flex-shrink-0"
+                  />
+                  <div className="flex-1">
+                    <h2 className="text-xl font-semibold text-foreground">{component.name}</h2>
+                    <p className="text-sm text-muted-foreground capitalize">{component.type}</p>
+                  </div>
                 </div>
-              </div>
+              </Link>
               {component.documentationUrl && (
                 <a
                   href={component.documentationUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-sm text-primary hover:underline"
+                  className="text-sm text-primary hover:underline inline-block mt-2"
                   onClick={(e) => e.stopPropagation()}
                 >
                   External Docs →
                 </a>
               )}
-            </Link>
+            </div>
           ))}
         </div>
       )}

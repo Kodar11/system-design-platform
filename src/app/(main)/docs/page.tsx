@@ -11,14 +11,15 @@ import { getCachedComponents } from '@/lib/cache/componentCache';
 export const revalidate = 3600;
 
 export default async function DocsPage() {
-  const session = await getServerSession(NEXT_AUTH_CONFIG);
+  // Parallel data fetching optimization
+  const [session, components] = await Promise.all([
+    getServerSession(NEXT_AUTH_CONFIG),
+    getCachedComponents()
+  ]);
   
   if (!session?.user?.id) {
     redirect('/api/auth/login');
   }
-
-  // Use cached components
-  const components = await getCachedComponents();
 
   return (
     <>

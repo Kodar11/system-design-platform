@@ -10,14 +10,15 @@ import { getCachedProblems } from '@/lib/cache/problemCache';
 export const revalidate = 3600;
 
 export default async function ProblemsPage() {
-  const session = await getServerSession(NEXT_AUTH_CONFIG);
+  // Parallel data fetching optimization
+  const [session, problems] = await Promise.all([
+    getServerSession(NEXT_AUTH_CONFIG),
+    getCachedProblems()
+  ]);
   
   if (!session?.user?.id) {
     redirect('/api/auth/login');
   }
-
-  // Use cached problems
-  const problems = await getCachedProblems();
 
   return (
     <>

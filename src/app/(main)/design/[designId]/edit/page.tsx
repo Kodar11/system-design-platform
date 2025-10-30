@@ -12,11 +12,12 @@ import { getCachedComponents } from '@/lib/cache/componentCache';
 export const revalidate = 3600;
 
 export default async function EditorPage({ params }: { params: Promise<{ designId: string }> }) {
-  const { designId: _designId } = await params;
+  // Parallel data fetching optimization
+  const [{ designId: _designId }, components] = await Promise.all([
+    params,
+    getCachedComponents()
+  ]);
   console.log("Design_id : ",_designId);
-  
-  // Use cached components
-  const components = await getCachedComponents();
 
   return (
     <div className="flex flex-col h-screen bg-background">

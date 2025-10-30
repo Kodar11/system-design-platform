@@ -65,6 +65,9 @@ model Design {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   user        User     @relation(fields: [userId], references: [id])
+  
+  @@index([userId, isDeleted])
+  @@index([userId, createdAt])
 }
 model Problem {
   id                    String            @id @default(uuid())
@@ -75,6 +78,9 @@ model Problem {
   difficulty            Difficulty        @default(MEDIUM)
   isDeleted             Boolean           @default(false)
   submissions           Submission[]
+  
+  @@index([difficulty, isDeleted])
+  @@index([isDeleted])
 }
 
 model Submission {
@@ -88,6 +94,10 @@ model Submission {
   updatedAt             DateTime          @updatedAt
   problem               Problem           @relation(fields: [problemId], references: [id])
   user                  User              @relation(fields: [userId], references: [id])
+  
+  @@index([userId, createdAt])
+  @@index([problemId])
+  @@index([userId, problemId])
 }
 model Component {
   id               String  @id @default(uuid())
@@ -97,6 +107,9 @@ model Component {
   documentationUrl String?
   metadata         Json
   isDeleted        Boolean @default(false)
+  
+  @@index([isDeleted])
+  @@index([type, isDeleted])
 }
 
 model CloudService {

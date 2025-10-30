@@ -14,8 +14,11 @@ interface PageProps {
 }
 
 export default async function SubmissionResultPage({ params }: PageProps) {
-  const { submissionId } = await params;
-  const session = await getServerSession(NEXT_AUTH_CONFIG);
+  // Parallel data fetching optimization
+  const [{ submissionId }, session] = await Promise.all([
+    params,
+    getServerSession(NEXT_AUTH_CONFIG)
+  ]);
   
   if (!session?.user?.id) {
     redirect('/api/auth/login');
