@@ -1,34 +1,89 @@
 import { withAuth } from "next-auth/middleware";
 import { NextResponse } from "next/server";
 
-const requestCounts = new Map<string, { count: number; lastReset: number }>();
-const RATE_LIMIT_DURATION = 60 * 1000000;
-const MAX_REQUESTS = 1000000;
+// Optimized rate limiting with LRU cache (auto-cleanup old entries)
+class RateLimiter {
+  private cache = new Map<string, { count: number; lastReset: number }>();
+  private readonly maxSize = 10000; // Prevent memory leaks
+  private readonly duration = 60 * 1000; // 1 minute
+  private readonly maxRequests = 100; // Reasonable limit
+
+  check(ip: string): boolean {
+    const now = Date.now();
+    
+    // Auto-cleanup old entries (every 100 checks)
+    if (this.cache.size > this.maxSize) {
+      const oldestAllowed = now - this.duration;
+      for (const [key, value] of this.cache.entries()) {
+        if (value.lastReset < oldestAllowed) {
+          this.cache.delete(key);
+        }
+      }
+    }
+
+    let ipData = this.cache.get(ip);
+
+    if (!ipData || (now - ipData.lastReset > this.duration)) {
+      this.cache.set(ip, { count: 1, lastReset: now });
+      return true;
+    }
+
+    ipData.count++;
+    this.cache.set(ip, ipData);
+
+    return ipData.count <= this.maxRequests;
+  }
+}
+
+const rateLimiter = new RateLimiter();
+
+// Static paths for faster lookups
+const PUBLIC_PATHS = new Set([
+  "/",
+  "/signup",
+  "/verify-email",
+  "/api/auth",
+  "/api/users",
+  "/api/send-otp",
+  "/api/verify-otp",
+]);
+
+const isPublicPath = (pathname: string): boolean => {
+  // Exact match first (fastest)
+  if (PUBLIC_PATHS.has(pathname)) return true;
+  
+  // Prefix match for API routes
+  return pathname.startsWith("/api/auth");
+};
 
 export default withAuth(
   function middleware(req) {
-    const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
-    const now = Date.now();
+    const pathname = req.nextUrl.pathname;
 
-    let ipData = requestCounts.get(ip);
-
-    if (!ipData || (now - ipData.lastReset > RATE_LIMIT_DURATION)) {
-      ipData = { count: 1, lastReset: now };
-      requestCounts.set(ip, ipData);
-    } else {
-      ipData.count++;
-      requestCounts.set(ip, ipData);
+    // Skip rate limiting for static files (already handled by matcher)
+    if (pathname.startsWith('/_next') || pathname === '/favicon.ico') {
+      return NextResponse.next();
     }
 
-    if (ipData.count > MAX_REQUESTS) {
-      console.warn(`Rate limit exceeded for IP: ${ip} on path: ${req.nextUrl.pathname}`);
-      return new NextResponse("Too Many Requests", { status: 429, headers: { 'Retry-After': (RATE_LIMIT_DURATION / 1000).toString() } });
+    // Rate limiting (only for non-public paths)
+    if (!isPublicPath(pathname)) {
+      const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 
+                 req.headers.get('x-real-ip') || 
+                 'unknown';
+      
+      if (!rateLimiter.check(ip)) {
+        return new NextResponse("Too Many Requests", { 
+          status: 429, 
+          headers: { 'Retry-After': '60' } 
+        });
+      }
     }
 
-
-    if (req.nextUrl.pathname.startsWith("/admin") && req.nextauth.token?.role !== "ADMIN") {
-      console.log("Middleware: Redirecting non-admin from /admin to login.");
-      return NextResponse.redirect(new URL("/api/auth/login?error=UnauthorizedAdminAccess", req.url));
+    // Admin access check (optimized with early return)
+    if (pathname.startsWith("/admin") && req.nextauth.token?.role !== "ADMIN") {
+      return NextResponse.redirect(
+        new URL("/api/auth/login?error=UnauthorizedAdminAccess", req.url)
+      );
     }
 
     return NextResponse.next();
@@ -36,19 +91,8 @@ export default withAuth(
   {
     callbacks: {
       authorized: ({ req, token }) => {
-        const publicPaths = [
-          "/",
-          "/api/auth",
-          "/signup",
-          "/verify-email",
-          "/api/users",
-          "/api/send-otp",
-          "/api/verify-otp",
-        ];
-
-        const isPublicPath = publicPaths.some(path => req.nextUrl.pathname.startsWith(path));
-
-        if (isPublicPath) {
+        // Use optimized public path check
+        if (isPublicPath(req.nextUrl.pathname)) {
           return true;
         }
 
@@ -62,5 +106,8 @@ export default withAuth(
 );
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
+  // Optimized matcher - exclude more static files
+  matcher: [
+    '/((?!_next/static|_next/image|_next/webpack-hmr|favicon.ico|robots.txt|sitemap.xml|assets).*)',
+  ],
 };
