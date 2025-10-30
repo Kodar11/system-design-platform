@@ -23,9 +23,5 @@ export default async function VerifyEmailPage({ searchParams }: { searchParams: 
     const params = await searchParams;
     const initialEmail = params?.email || '';
 
-    return (
-        <div className="min-h-screen flex justify-center items-center bg-gray-100">
-            <VerifyEmailClient initialEmail={initialEmail} />
-        </div>
-    );
+    return <VerifyEmailClient initialEmail={initialEmail} />;
 }

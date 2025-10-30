@@ -6,7 +6,7 @@ import { NEXT_AUTH_CONFIG } from '@/lib/nextAuthConfig';
 import { redirect } from 'next/navigation';
 import ThemeToggle from '@/components/ui/ThemeToggle';
 import NavBar from '@/components/ui/NavBar';
-import Image from 'next/image';
+import ThemeAwareIcon from '@/components/ui/ThemeAwareIcon';
 import Footer from '@/components/ui/Footer';
 
 export default async function DocsPage() {
@@ -27,7 +27,6 @@ export default async function DocsPage() {
       <div className="min-h-screen bg-background p-8">
         <header className="max-w-6xl mx-auto flex justify-between items-center mb-8">
           <h1 className="text-4xl font-bold text-foreground">Component Documentation</h1>
-          <ThemeToggle />
         </header>
         <div className="max-w-6xl mx-auto">
           <p className="text-muted-foreground mb-8">
@@ -47,7 +46,7 @@ export default async function DocsPage() {
                   className="bg-card rounded-lg shadow hover:shadow-lg transition-shadow p-6 border border-border hover:bg-accent/50"
                 >
                   <div className="flex items-start gap-4 mb-4">
-                    <Image
+                    <ThemeAwareIcon
                       src={component.iconUrl || '/assets/icons/default.svg'}
                       alt={component.name}
                       width={48}

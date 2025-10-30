@@ -128,9 +128,9 @@ export default function VerifyEmailClient({ initialEmail }: VerifyEmailClientPro
 
             {/* Success Message */}
             {message && (
-              <div className="mb-6 p-4 bg-green-500/10 border border-green-500/20 rounded-lg flex items-center">
-                <CheckCircleIcon className="h-5 w-5 text-green-500 mr-2" />
-                <p className="text-green-500 text-sm">{message}</p>
+              <div className="mb-6 p-4 bg-green-500/10 dark:bg-green-500/20 border border-green-500/20 dark:border-green-500/30 rounded-lg flex items-center">
+                <CheckCircleIcon className="h-5 w-5 text-green-600 dark:text-green-400 mr-2" />
+                <p className="text-green-600 dark:text-green-400 text-sm">{message}</p>
               </div>
             )}
 
@@ -183,7 +183,7 @@ export default function VerifyEmailClient({ initialEmail }: VerifyEmailClientPro
               disabled={resendCooldown > 0 || loading}
               className={`w-full py-3 font-semibold rounded-lg transition-all duration-200 ${resendCooldown > 0 || loading
                   ? "bg-muted text-muted-foreground cursor-not-allowed"
-                  : "bg-accent text-accent-foreground hover:bg-accent/90 shadow-lg hover:shadow-xl"
+                  : "bg-secondary text-secondary-foreground hover:bg-secondary/90 border border-border shadow-lg hover:shadow-xl"
                 }`}
             >
               {resendCooldown > 0 ? `Resend code in ${resendCooldown}s` : "Resend Verification Code"}

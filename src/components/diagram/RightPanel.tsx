@@ -42,7 +42,7 @@ const DynamicForm = ({ control, register, metadata, watch, prefix = '', errors =
         const configData = config as MetadataConfig;
         const fieldName = prefix ? `${prefix}.${key}` : key;
         const fieldHasError = errors.some(e => e.field === fieldName);
-        const inputClass = `w-full p-3 border rounded-md focus:outline-none bg-background text-foreground ${
+        const inputClass = `w-full p-3 border rounded-md focus:outline-none bg-background text-foreground shadow-sm ${
           fieldHasError 
             ? 'border-destructive focus:ring-2 focus:ring-destructive' 
             : 'border-input focus:outline-none focus:ring-2 focus:ring-primary'
@@ -62,7 +62,12 @@ const DynamicForm = ({ control, register, metadata, watch, prefix = '', errors =
                 render={({ field }) => (
                   <select
                     {...field}
-                    className={inputClass}
+                    className={`${inputClass} cursor-pointer appearance-none bg-right pr-10 bg-no-repeat [&>option]:bg-background [&>option]:text-foreground dark:[&>option]:bg-gray-800 dark:[&>option]:text-gray-100`}
+                    style={{
+                      backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3E%3Cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3E%3C/svg%3E")`,
+                      backgroundPosition: 'right 0.5rem center',
+                      backgroundSize: '1.5em 1.5em',
+                    }}
                   >
                     {Array.isArray(configData.options) && configData.options.map((option: string) => (
                       <option key={option} value={option}>
@@ -111,12 +116,14 @@ const DynamicForm = ({ control, register, metadata, watch, prefix = '', errors =
                   control={control}
                   defaultValue={configData.default || false}
                   render={({ field }) => (
-                    <input
-                      type="checkbox"
-                      checked={field.value as boolean}
-                      onChange={(e) => field.onChange(e.target.checked)}
-                      className={`${inputClass} h-5 w-5 text-primary rounded focus:ring-destructive bg-background ${fieldHasError ? 'border-destructive' : 'border-input'}`}
-                    />
+                    <div className="flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={field.value as boolean}
+                        onChange={(e) => field.onChange(e.target.checked)}
+                        className={`h-5 w-5 text-primary rounded border-2 focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background cursor-pointer ${fieldHasError ? 'border-destructive' : 'border-input'}`}
+                      />
+                    </div>
                   )}
                 />
               ) : (
@@ -126,6 +133,7 @@ const DynamicForm = ({ control, register, metadata, watch, prefix = '', errors =
                     valueAsNumber: configData.type === 'number',
                   })}
                   defaultValue={String(configData.default || '')}
+                  placeholder={configData.type === 'number' ? 'Enter a number' : 'Enter value'}
                   className={inputClass}
                 />
               )}
@@ -252,13 +260,13 @@ export const RightPanel = () => {
           )}
 
           {currentErrors.length > 0 && (
-            <div className="bg-destructive/10 border border-destructive/20 rounded-md p-4 shadow-sm">
-              <h4 className="font-semibold text-destructive mb-3 flex items-center">
+            <div className="bg-destructive/10 dark:bg-destructive/20 border border-destructive/20 dark:border-destructive/30 rounded-md p-4 shadow-sm">
+              <h4 className="font-semibold text-destructive dark:text-red-400 mb-3 flex items-center">
                 <AlertCircle className="w-4 h-4 mr-2" /> Configuration Issues
               </h4>
               <ul className="space-y-2 text-sm">
                 {currentErrors.map((err, index) => (
-                  <li key={index} className="flex items-start text-destructive">
+                  <li key={index} className="flex items-start text-destructive dark:text-red-400">
                     <AlertCircle className="w-3 h-3 mt-0.5 mr-2 flex-shrink-0" />
                     <span>{err.message}</span>
                   </li>
