@@ -43,6 +43,19 @@ interface DiagramNodeData {
   [key: string]: unknown;
 }
 
+interface TranscriptEntry {
+  role: 'AI' | 'User';
+  message: string;
+  timestamp: number;
+  context?: string;
+}
+
+interface ComponentEvent {
+  componentId: string;
+  componentLabel: string;
+  timestamp: number;
+}
+
 interface DiagramState {
   nodes: Node<DiagramNodeData>[];
   edges: Edge[];
@@ -56,6 +69,16 @@ interface DiagramState {
   totalCost: number;
   nodeErrors: Record<string, ErrorItem[]>;
   hasCriticalErrors: boolean;
+
+  interviewMode: 'practice' | 'mock' | null;
+  transcriptHistory: TranscriptEntry[];
+  isAIPaused: boolean;
+  globalCooldownTime: number | null;
+  componentBatchQueue: ComponentEvent[];
+  maxClarifyingQuestions: number;
+  clarifyingQuestionCount: number;
+  lastInterruptionTime: number | null;
+  interviewPhase: 'clarification' | 'design' | 'complete';
 
   onNodesChange: (changes: NodeChange[]) => void;
   onEdgesChange: (changes: EdgeChange[]) => void;
@@ -82,6 +105,19 @@ interface DiagramState {
   duplicateSelectedNodes: () => void;
   toggleEdgeStyle: (edgeId: string) => void;
   temporal?: TemporalActions;
+  
+  setInterviewMode: (mode: 'practice' | 'mock' | null) => void;
+  addTranscriptEntry: (role: 'AI' | 'User', message: string, context?: string) => void;
+  setIsAIPaused: (paused: boolean) => void;
+  setGlobalCooldownTime: (time: number | null) => void;
+  addComponentToBatch: (componentId: string, componentLabel: string) => void;
+  clearComponentBatch: () => void;
+  incrementClarifyingQuestionCount: () => void;
+  resetClarifyingQuestions: () => void;
+  setLastInterruptionTime: (time: number) => void;
+  setInterviewPhase: (phase: 'clarification' | 'design' | 'complete') => void;
+  clearTranscriptHistory: () => void;
+  resetInterviewState: () => void;
 }
 
 // -------------------- HELPERS --------------------
@@ -239,6 +275,16 @@ export const useDiagramStore = create<DiagramState>()(
       nodeErrors: {},
       hasCriticalErrors: false,
 
+      interviewMode: null,
+      transcriptHistory: [],
+      isAIPaused: false,
+      globalCooldownTime: null,
+      componentBatchQueue: [],
+      maxClarifyingQuestions: 5,
+      clarifyingQuestionCount: 0,
+      lastInterruptionTime: null,
+      interviewPhase: 'clarification',
+
       // ✅ Event handlers
       onNodesChange: (changes) => set({ nodes: applyNodeChanges(changes, get().nodes) }),
       onEdgesChange: (changes) => set({ edges: applyEdgeChanges(changes, get().edges) }),
@@ -335,6 +381,52 @@ export const useDiagramStore = create<DiagramState>()(
           ),
         })),
       duplicateSelectedNodes: () => {/* ... */ },
+
+      setInterviewMode: (mode) => set({ interviewMode: mode }),
+      
+      addTranscriptEntry: (role, message, context) => 
+        set((state) => ({
+          transcriptHistory: [
+            ...state.transcriptHistory,
+            { role, message, timestamp: Date.now(), context }
+          ]
+        })),
+      
+      setIsAIPaused: (paused) => set({ isAIPaused: paused }),
+      
+      setGlobalCooldownTime: (time) => set({ globalCooldownTime: time }),
+      
+      addComponentToBatch: (componentId, componentLabel) =>
+        set((state) => ({
+          componentBatchQueue: [
+            ...state.componentBatchQueue,
+            { componentId, componentLabel, timestamp: Date.now() }
+          ]
+        })),
+      
+      clearComponentBatch: () => set({ componentBatchQueue: [] }),
+      
+      incrementClarifyingQuestionCount: () =>
+        set((state) => ({ clarifyingQuestionCount: state.clarifyingQuestionCount + 1 })),
+      
+      resetClarifyingQuestions: () => set({ clarifyingQuestionCount: 0 }),
+      
+      setLastInterruptionTime: (time) => set({ lastInterruptionTime: time }),
+      
+      setInterviewPhase: (phase) => set({ interviewPhase: phase }),
+      
+      clearTranscriptHistory: () => set({ transcriptHistory: [] }),
+      
+      resetInterviewState: () => set({
+        interviewMode: null,
+        transcriptHistory: [],
+        isAIPaused: false,
+        globalCooldownTime: null,
+        componentBatchQueue: [],
+        clarifyingQuestionCount: 0,
+        lastInterruptionTime: null,
+        interviewPhase: 'clarification'
+      }),
     }),
     {
       partialize: (state) => ({ nodes: state.nodes, edges: state.edges }),

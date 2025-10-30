@@ -93,16 +93,26 @@ export default async function ProblemDetailPage({
             </div>
           </div>
           
-          <Link
-            href={`/problems/${problem.id}/solve/`}
-            className="inline-flex items-center px-8 py-4 bg-gradient-to-r from-primary to-primary/80 text-primary-foreground font-bold text-lg rounded-xl hover:from-primary/90 hover:to-primary/70 transform hover:scale-105 transition-all shadow-lg hover:shadow-xl"
-          >
-            <svg className="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            Start Solving
-          </Link>
+          <div className="flex flex-col gap-3">
+            <Link
+              href={`/problems/${problem.id}/solve?mode=practice`}
+              className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white font-bold text-base rounded-xl hover:from-green-700 hover:to-green-800 transform hover:scale-105 transition-all shadow-lg hover:shadow-xl"
+            >
+              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              📝 Practice Mode
+            </Link>
+            <Link
+              href={`/problems/${problem.id}/solve?mode=mock`}
+              className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold text-base rounded-xl hover:from-blue-700 hover:to-indigo-700 transform hover:scale-105 transition-all shadow-lg hover:shadow-xl"
+            >
+              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+              </svg>
+              🎤 Mock Interview
+            </Link>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -221,17 +231,22 @@ export default async function ProblemDetailPage({
             <div className="bg-gradient-to-br from-primary to-primary/80 rounded-xl shadow-lg p-6 text-primary-foreground sticky top-8">
               <h3 className="text-2xl font-bold mb-4">Ready to Solve?</h3>
               <p className="text-primary-foreground/80 mb-6 text-sm leading-relaxed">
-                Design your system architecture using our interactive diagram editor. Get instant AI-powered feedback on your solution.
+                Choose your mode: Practice with pre-set questions or experience a realistic Mock Interview with AI.
               </p>
-              <Link
-                href={`/problems/${problem.id}/solve`}
-                className="block w-full text-center px-6 py-4 bg-primary-foreground text-primary font-bold rounded-lg hover:bg-accent transition-all shadow-md hover:shadow-lg transform hover:scale-105"
-              >
-                Start Solving Now
-                <svg className="w-5 h-5 inline ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                </svg>
-              </Link>
+              <div className="space-y-3">
+                <Link
+                  href={`/problems/${problem.id}/solve?mode=practice`}
+                  className="block w-full text-center px-6 py-3 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 transition-all shadow-md hover:shadow-lg"
+                >
+                  📝 Practice Mode
+                </Link>
+                <Link
+                  href={`/problems/${problem.id}/solve?mode=mock`}
+                  className="block w-full text-center px-6 py-3 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition-all shadow-md hover:shadow-lg"
+                >
+                  🎤 Mock Interview
+                </Link>
+              </div>
               
               <div className="mt-6 pt-6 border-t border-primary-foreground/20">
                 <div className="flex items-center justify-between text-sm">

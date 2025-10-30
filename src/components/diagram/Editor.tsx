@@ -89,8 +89,18 @@ export const Editor = () => {
     currentEdgeConfig,
     toggleEdgeStyle,
     computeCostsAndErrors,
+    interviewMode,
+    addComponentToBatch,
+    globalCooldownTime,
+    componentBatchQueue,
+    interviewPhase,
+    setLastInterruptionTime,
+    lastInterruptionTime,
   } = useDiagramStore();
   const { getNodes } = useReactFlow();
+
+  const nodeCountRef = useRef(nodes.length);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   const pathname = usePathname();
 
@@ -158,6 +168,107 @@ export const Editor = () => {
   useEffect(() => {
     computeCostsAndErrors();
   }, [nodes, computeCostsAndErrors]);
+
+  useEffect(() => {
+    if (interviewMode === 'mock' && nodes.length > nodeCountRef.current) {
+      const newNodes = nodes.slice(nodeCountRef.current);
+      
+      newNodes.forEach(node => {
+        const componentLabel = typeof node.data?.label === 'string' ? node.data.label : 'Unknown Component';
+        addComponentToBatch(node.id, componentLabel);
+      });
+    }
+    
+    nodeCountRef.current = nodes.length;
+  }, [nodes, interviewMode, addComponentToBatch]);
+
+  // Timer-based interruptions for mock interview mode
+  useEffect(() => {
+    if (interviewMode !== 'mock' || interviewPhase !== 'design') {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+      return;
+    }
+
+    const INTERRUPT_INTERVAL = 5 * 60 * 1000; // 5 minutes
+    const INTERRUPT_VARIANCE = 2 * 60 * 1000; // +/- 2 minutes
+
+    const scheduleNextInterruption = () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+
+      const randomInterval = INTERRUPT_INTERVAL + (Math.random() * INTERRUPT_VARIANCE * 2 - INTERRUPT_VARIANCE);
+      
+      timerRef.current = setTimeout(() => {
+        const now = Date.now();
+        
+        // Check if we're in cooldown
+        if (globalCooldownTime && now < globalCooldownTime) {
+          console.log('Skipping structured interruption - in cooldown');
+          scheduleNextInterruption();
+          return;
+        }
+
+        // Check if we recently interrupted
+        if (lastInterruptionTime && (now - lastInterruptionTime) < 60000) {
+          console.log('Skipping structured interruption - too soon after last one');
+          scheduleNextInterruption();
+          return;
+        }
+
+        console.log('Structured time interruption triggered!');
+        setLastInterruptionTime(now);
+        
+        // Trigger the custom event to open modal and ask question
+        window.dispatchEvent(new CustomEvent('mockInterviewInterrupt', {
+          detail: { 
+            trigger: 'structured_time',
+            componentBatch: componentBatchQueue 
+          }
+        }));
+
+        scheduleNextInterruption();
+      }, randomInterval);
+    };
+
+    scheduleNextInterruption();
+
+    return () => {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
+    };
+  }, [interviewMode, interviewPhase, globalCooldownTime, lastInterruptionTime, componentBatchQueue, setLastInterruptionTime]);
+
+  // Component batch trigger - ask question when components are added and cooldown expires
+  useEffect(() => {
+    if (interviewMode !== 'mock' || interviewPhase !== 'design') return;
+    if (componentBatchQueue.length === 0) return;
+    if (globalCooldownTime && Date.now() < globalCooldownTime) return;
+
+    const BATCH_DELAY = 3000; // Wait 3 seconds after last component before asking
+
+    const timer = setTimeout(() => {
+      const now = Date.now();
+      
+      if (globalCooldownTime && now < globalCooldownTime) return;
+      if (lastInterruptionTime && (now - lastInterruptionTime) < 30000) return; // Min 30s between interrupts
+
+      console.log('Component batch interruption triggered!');
+      setLastInterruptionTime(now);
+      
+      window.dispatchEvent(new CustomEvent('mockInterviewInterrupt', {
+        detail: { 
+          trigger: 'component_added',
+          componentBatch: componentBatchQueue 
+        }
+      }));
+    }, BATCH_DELAY);
+
+    return () => clearTimeout(timer);
+  }, [componentBatchQueue, interviewMode, interviewPhase, globalCooldownTime, lastInterruptionTime, setLastInterruptionTime]);
 
   // NEW: Global keyboard shortcuts (scoped to editor, ignore inputs)
   const handleKeyDown = useCallback((e: KeyboardEvent) => {

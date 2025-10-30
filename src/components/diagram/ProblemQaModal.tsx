@@ -2,7 +2,9 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useForm, Controller } from 'react-hook-form';
-import { Save, X, CheckCircle, Mic, MicOff, Trash2 } from 'lucide-react';
+import { Save, X, CheckCircle, Mic, MicOff, Trash2, Send } from 'lucide-react';
+import { useDiagramStore } from '@/store/diagramStore';
+import { interactWithInterviewer } from '@/app/actions';
 
 /* ---------- Type Declarations ---------- */
 interface ExtendedSpeechRecognition extends EventTarget {
@@ -39,19 +41,45 @@ interface ProblemQaModalProps {
   problemId: string;
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
+  forceLock?: boolean;
 }
 
 /* ---------- Component ---------- */
 export const ProblemQaModal: React.FC<ProblemQaModalProps> = ({
   qaData,
   problemTitle,
+  problemId,
   isOpen,
   onOpenChange,
+  forceLock = false,
 }) => {
+  const {
+    interviewMode,
+    transcriptHistory,
+    addTranscriptEntry,
+    interviewPhase,
+    clarifyingQuestionCount,
+    maxClarifyingQuestions,
+    componentBatchQueue,
+    globalCooldownTime,
+    lastInterruptionTime,
+    setGlobalCooldownTime,
+    setInterviewPhase,
+    incrementClarifyingQuestionCount,
+    isAIPaused,
+    setIsAIPaused,
+    clearComponentBatch,
+  } = useDiagramStore();
+
   const [activeListeningIndex, setActiveListeningIndex] = useState<number | null>(null);
   const [recognitionSupported, setRecognitionSupported] = useState(false);
   const recognitionRef = useRef<ExtendedSpeechRecognition | null>(null);
   const [isListening, setIsListening] = useState(false);
+  
+  const [mockCurrentMessage, setMockCurrentMessage] = useState('');
+  const [mockIsLoading, setMockIsLoading] = useState(false);
+  const [canCloseModal, setCanCloseModal] = useState(true);
+  const [pendingInterrupt, setPendingInterrupt] = useState<{ trigger: string; timestamp: number } | null>(null);
 
   const safeQaData = qaData
     ? {
@@ -149,14 +177,362 @@ export const ProblemQaModal: React.FC<ProblemQaModalProps> = ({
   };
 
   const clearAnswer = (index: number) => setValue(`answers.${index}`, '');
+  
   const handleClose = () => {
     stopListening();
+    
+    // During clarification phase, user can always close (except when AI is responding)
+    if (interviewPhase === 'clarification' && !isAIPaused && !mockIsLoading) {
+      onOpenChange(false);
+      return;
+    }
+    
+    // During design phase, check if modal is locked
+    if (!canCloseModal || forceLock || isAIPaused) {
+      console.log('Cannot close modal:', { canCloseModal, forceLock, isAIPaused });
+      return;
+    }
+    
     onOpenChange(false);
   };
+
+  const handleMockSendMessage = async () => {
+    if (!mockCurrentMessage.trim() || mockIsLoading) return;
+
+    const userMessage = mockCurrentMessage.trim();
+    setMockCurrentMessage('');
+    addTranscriptEntry('User', userMessage);
+
+    const questionPattern = /[?]/g;
+    const questionCount = userMessage.match(questionPattern)?.length || 0;
+    
+    if (interviewPhase === 'clarification' && questionCount > 0) {
+      for (let i = 0; i < questionCount; i++) {
+        incrementClarifyingQuestionCount();
+      }
+    }
+
+    setMockIsLoading(true);
+    setIsAIPaused(true);
+    setCanCloseModal(false);
+
+    try {
+      const response = await interactWithInterviewer({
+        problemId,
+        transcriptHistory,
+        interviewPhase,
+        clarifyingQuestionCount,
+        maxClarifyingQuestions,
+        componentBatchQueue,
+        globalCooldownTime,
+        lastInterruptionTime,
+        trigger: 'user_message',
+        userMessage,
+      });
+
+      await new Promise(resolve => setTimeout(resolve, Math.random() * 3000 + 2000));
+
+      addTranscriptEntry('AI', response.aiMessage, 'response');
+
+      if (response.transitionToDesign) {
+        setInterviewPhase('design');
+        console.log('✅ Transitioned to design phase - user can now close modal and start designing');
+      }
+
+      const cooldownEnd = Date.now() + response.cooldownDuration;
+      setGlobalCooldownTime(cooldownEnd);
+
+      setTimeout(() => {
+        setGlobalCooldownTime(null);
+        setIsAIPaused(false);
+        // In design phase or after transition, always allow closing unless it's an interrupt question
+        setCanCloseModal(true);
+      }, response.cooldownDuration);
+
+      clearComponentBatch();
+
+    } catch (error: unknown) {
+      console.error('Mock interview error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to communicate with interviewer';
+      addTranscriptEntry('AI', `[Error: ${errorMessage}]`, 'error');
+      setIsAIPaused(false);
+      setCanCloseModal(true);
+    } finally {
+      setMockIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (interviewMode === 'mock' && isOpen && transcriptHistory.length === 0) {
+      const initializeMockInterview = async () => {
+        setIsAIPaused(true);
+        setCanCloseModal(false);
+        
+        try {
+          const response = await interactWithInterviewer({
+            problemId,
+            transcriptHistory: [],
+            interviewPhase: 'clarification',
+            clarifyingQuestionCount: 0,
+            maxClarifyingQuestions,
+            componentBatchQueue: [],
+            globalCooldownTime: null,
+            lastInterruptionTime: null,
+            trigger: 'initial',
+          });
+
+          addTranscriptEntry('AI', response.aiMessage, 'greeting');
+          
+          setIsAIPaused(false);
+          // Allow user to close after initial greeting - they can ask questions when ready
+          setCanCloseModal(true);
+          console.log('✅ Initial greeting complete - user can close modal or ask questions');
+        } catch (error: unknown) {
+          console.error('Failed to initialize mock interview:', error);
+          setIsAIPaused(false);
+          setCanCloseModal(true);
+        }
+      };
+
+      initializeMockInterview();
+    }
+  }, [interviewMode, isOpen, transcriptHistory.length, problemId, maxClarifyingQuestions, addTranscriptEntry, setIsAIPaused]);
+
+  // Listen for interruptions globally (even when modal is closed)
+  useEffect(() => {
+    if (interviewMode !== 'mock' || interviewPhase !== 'design') {
+      console.log('Not setting up interrupt listener:', { interviewMode, interviewPhase });
+      return;
+    }
+
+    const handleInterrupt = (event: Event) => {
+      const customEvent = event as CustomEvent;
+      const { trigger } = customEvent.detail;
+      
+      console.log('🔔 Interrupt received in ProblemQaModal:', { 
+        trigger, 
+        modalOpen: isOpen, 
+        currentPhase: interviewPhase,
+        transcriptLength: transcriptHistory.length 
+      });
+      
+      // Store the pending interrupt
+      setPendingInterrupt({ trigger, timestamp: Date.now() });
+    };
+
+    window.addEventListener('mockInterviewInterrupt', handleInterrupt);
+    console.log('✅ Interrupt listener added to ProblemQaModal');
+
+    return () => {
+      window.removeEventListener('mockInterviewInterrupt', handleInterrupt);
+      console.log('❌ Interrupt listener removed from ProblemQaModal');
+    };
+  }, [interviewMode, interviewPhase, isOpen, transcriptHistory.length]);
+
+  // Process pending interrupts when modal opens
+  useEffect(() => {
+    console.log('Checking for pending interrupt:', {
+      isOpen,
+      hasPendingInterrupt: !!pendingInterrupt,
+      mockIsLoading,
+      interviewMode,
+      interviewPhase,
+      pendingInterruptDetails: pendingInterrupt
+    });
+
+    if (!isOpen || !pendingInterrupt || mockIsLoading || interviewMode !== 'mock' || interviewPhase !== 'design') {
+      return;
+    }
+
+    const processPendingInterrupt = async () => {
+      const { trigger } = pendingInterrupt;
+      
+      console.log('🚀 Processing pending interrupt:', trigger);
+      
+      // Clear the pending interrupt immediately
+      setPendingInterrupt(null);
+      
+      setMockIsLoading(true);
+      setIsAIPaused(true);
+      setCanCloseModal(false);
+
+      try {
+        console.log('📞 Calling interactWithInterviewer with:', {
+          trigger,
+          transcriptLength: transcriptHistory.length,
+          componentBatchLength: componentBatchQueue.length
+        });
+
+        const response = await interactWithInterviewer({
+          problemId,
+          transcriptHistory,
+          interviewPhase,
+          clarifyingQuestionCount,
+          maxClarifyingQuestions,
+          componentBatchQueue,
+          globalCooldownTime,
+          lastInterruptionTime,
+          trigger: trigger as 'component_added' | 'structured_time' | 'idle_timeout',
+        });
+
+        console.log('✅ AI Response received:', response.aiMessage.substring(0, 100) + '...');
+
+        // Simulate thinking delay
+        await new Promise(resolve => setTimeout(resolve, Math.random() * 2000 + 1000));
+
+        addTranscriptEntry('AI', response.aiMessage, 'question');
+        console.log('✅ AI message added to transcript');
+
+        const cooldownEnd = Date.now() + response.cooldownDuration;
+        setGlobalCooldownTime(cooldownEnd);
+
+        // Lock modal only while AI is asking the question - user must answer
+        setCanCloseModal(false);
+
+        setTimeout(() => {
+          setGlobalCooldownTime(null);
+          setIsAIPaused(false);
+          // After cooldown, allow closing ONLY after user has answered
+          // We'll unlock when they send their answer
+        }, response.cooldownDuration);
+
+        clearComponentBatch();
+
+      } catch (error: unknown) {
+        console.error('Interrupt question error:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Failed to get AI question';
+        addTranscriptEntry('AI', `[Error: ${errorMessage}]`, 'error');
+        setIsAIPaused(false);
+        setCanCloseModal(true);
+      } finally {
+        setMockIsLoading(false);
+      }
+    };
+
+    processPendingInterrupt();
+  }, [isOpen, pendingInterrupt, mockIsLoading, interviewMode, interviewPhase, problemId, transcriptHistory, clarifyingQuestionCount, maxClarifyingQuestions, componentBatchQueue, globalCooldownTime, lastInterruptionTime, addTranscriptEntry, setIsAIPaused, setGlobalCooldownTime, clearComponentBatch]);
 
   if (!isOpen || !safeQaData) return null;
 
   /* ---------- UI ---------- */
+  if (interviewMode === 'mock') {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-lg">
+        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border-2 border-blue-500 dark:border-blue-600 max-w-4xl max-h-[85vh] w-full flex flex-col overflow-hidden">
+          {/* Header */}
+          <div className="p-6 border-b-2 border-blue-500 dark:border-blue-600 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-900">
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-4">
+                <div className="p-2 bg-blue-600 rounded-lg">
+                  <CheckCircle className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+                    🎤 Mock Interview Mode
+                  </h2>
+                  <p className="text-sm text-gray-600 dark:text-gray-300">
+                    {interviewPhase === 'clarification' 
+                      ? `Clarification Phase (${clarifyingQuestionCount}/${maxClarifyingQuestions} questions asked)`
+                      : 'High-Level Design Phase - Answer AI questions about your design'}
+                  </p>
+                </div>
+              </div>
+              {/* Show close button based on phase and AI state */}
+              {(interviewPhase === 'clarification' && !isAIPaused && !mockIsLoading) || 
+               (interviewPhase === 'design' && canCloseModal && !isAIPaused && !forceLock) ? (
+                <button
+                  onClick={handleClose}
+                  className="p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                  title="Close"
+                >
+                  <X className="w-5 h-5 text-gray-700 dark:text-gray-300" />
+                </button>
+              ) : (
+                <div className="p-2 bg-red-100 dark:bg-red-900/30 rounded-lg" title="Cannot close - AI is asking a question">
+                  <X className="w-5 h-5 text-red-600 dark:text-red-400 opacity-50" />
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Body - Transcript */}
+          <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-gray-50 dark:bg-gray-800">
+            {transcriptHistory.map((entry, idx) => (
+              <div
+                key={idx}
+                className={`p-4 rounded-xl ${
+                  entry.role === 'AI'
+                    ? 'bg-blue-100 dark:bg-blue-900/30 border-l-4 border-blue-600'
+                    : 'bg-green-100 dark:bg-green-900/30 border-l-4 border-green-600 ml-8'
+                }`}
+              >
+                <div className="flex items-start gap-3">
+                  <div className={`font-bold text-sm ${
+                    entry.role === 'AI' ? 'text-blue-700 dark:text-blue-300' : 'text-green-700 dark:text-green-300'
+                  }`}>
+                    {entry.role === 'AI' ? '🤖 Interviewer' : '👤 You'}
+                  </div>
+                  <div className="flex-1 text-gray-900 dark:text-gray-100">
+                    {entry.message}
+                  </div>
+                </div>
+                <div className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                  {new Date(entry.timestamp).toLocaleTimeString()}
+                </div>
+              </div>
+            ))}
+            
+            {mockIsLoading && (
+              <div className="p-4 rounded-xl bg-blue-100 dark:bg-blue-900/30 border-l-4 border-blue-600 animate-pulse">
+                <div className="flex items-center gap-3">
+                  <div className="font-bold text-sm text-blue-700 dark:text-blue-300">
+                    🤖 Interviewer
+                  </div>
+                  <div className="text-gray-700 dark:text-gray-300">
+                    Thinking...
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Footer - Input */}
+          <div className="p-6 border-t-2 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
+            <div className="flex items-center gap-3">
+              <textarea
+                value={mockCurrentMessage}
+                onChange={(e) => setMockCurrentMessage(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleMockSendMessage();
+                  }
+                }}
+                placeholder={isAIPaused ? "Waiting for AI response..." : "Type your message..."}
+                disabled={mockIsLoading || isAIPaused}
+                className="flex-1 px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-h-[60px] resize-y disabled:opacity-50 disabled:cursor-not-allowed"
+              />
+              <button
+                onClick={handleMockSendMessage}
+                disabled={!mockCurrentMessage.trim() || mockIsLoading || isAIPaused}
+                className="px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center gap-2 shadow-lg hover:shadow-xl"
+              >
+                <Send className="w-5 h-5" />
+                Send
+              </button>
+            </div>
+            {isAIPaused && (
+              <div className="mt-3 text-sm text-red-600 dark:text-red-400 flex items-center gap-2">
+                <span className="animate-pulse">●</span>
+                AI is processing... Please wait for the response before continuing.
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md">
       <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 max-w-4xl max-h-[85vh] w-full flex flex-col overflow-hidden">
@@ -168,7 +544,7 @@ export const ProblemQaModal: React.FC<ProblemQaModalProps> = ({
               <div>
                 <h2 className="text-2xl font-bold">{problemTitle}</h2>
                 <p className="text-sm text-gray-500">
-                  Answer the questions below — you can type or use voice.
+                  📝 Practice Mode - Answer the questions below (type or use voice)
                 </p>
               </div>
             </div>

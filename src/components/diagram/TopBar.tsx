@@ -70,6 +70,13 @@ export const TopBar: React.FC = () => {
 
   const { undo, redo, pastStates, futureStates } = useDiagramStore.temporal.getState();
 
+  const { 
+    interviewMode, 
+    transcriptHistory,
+    componentBatchQueue,
+    interviewPhase,
+  } = useDiagramStore();
+
   // Detect problem mode from URL
   useEffect(() => {
     const match = pathname.match(/^\/problems\/([^\/]+)(?:\/|$)/);
@@ -83,6 +90,25 @@ export const TopBar: React.FC = () => {
       setProblemId(null);
     }
   }, [pathname]);
+
+  // Listen for mock interview interrupts from Editor
+  useEffect(() => {
+    if (interviewMode !== 'mock' || interviewPhase !== 'design') return;
+
+    const handleInterrupt = (event: Event) => {
+      const customEvent = event as CustomEvent;
+      console.log('Mock interview interrupt received:', customEvent.detail);
+      
+      // Open the modal automatically
+      setShowQaModal(true);
+    };
+
+    window.addEventListener('mockInterviewInterrupt', handleInterrupt);
+
+    return () => {
+      window.removeEventListener('mockInterviewInterrupt', handleInterrupt);
+    };
+  }, [interviewMode, interviewPhase]);
 
   // Normalize unknown QA arrays into QaItem[]
   const normalizeToQaItems = (value: unknown): QaItem[] => {
@@ -154,11 +180,15 @@ export const TopBar: React.FC = () => {
 
         setQaData(normalizedQa);
         computeCostsAndErrors();
+
+        if (interviewMode === 'mock') {
+          setShowQaModal(true);
+        }
       })
       .catch((err: unknown) => {
         console.error('Failed to load problem:', err);
       });
-  }, [problemId, setProblemData, setBudget, setConfigurationTargets, computeCostsAndErrors]);
+  }, [problemId, setProblemData, setBudget, setConfigurationTargets, computeCostsAndErrors, interviewMode]);
 
   // Retrieve submitted answers safely
   const getSubmittedAnswers = (): string[] => {
@@ -242,8 +272,21 @@ export const TopBar: React.FC = () => {
 
     try {
       setIsSubmitting(true);
-      console.log('Submitting diagram with data and answers:', { diagramData, submittedAnswers });
-      const submissionId = await submitProblemSolution(problemId, diagramData, submittedAnswers);
+      console.log('Submitting diagram with data and answers:', { 
+        diagramData, 
+        submittedAnswers, 
+        transcriptHistory: interviewMode === 'mock' ? transcriptHistory : undefined,
+        interviewMode 
+      });
+      
+      const submissionId = await submitProblemSolution(
+        problemId, 
+        diagramData, 
+        submittedAnswers,
+        interviewMode === 'mock' ? transcriptHistory : undefined,
+        interviewMode || undefined
+      );
+      
       router.push(`/problems/${problemId}/result/${submissionId}`);
     } catch (err: unknown) {
       console.error('Submission error:', err);

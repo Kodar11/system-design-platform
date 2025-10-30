@@ -120,17 +120,28 @@ interface SubmittedAnswer {
   answer: string;
 }
 
+interface TranscriptHistoryEntry {
+  role: 'AI' | 'User';
+  message: string;
+  timestamp: number;
+  context?: string;
+}
+
 /**
  * Submits a problem solution and evaluates it using AI
  * @param problemId The ID of the problem being solved
  * @param diagramData The diagram data containing nodes and edges
- * @param submittedAnswers Array of answers corresponding to interviewQuestions
+ * @param submittedAnswers Array of answers corresponding to interviewQuestions (practice mode)
+ * @param transcriptHistory Full conversation transcript (mock interview mode)
+ * @param interviewMode The mode used: 'practice' or 'mock'
  * @returns The submission ID to redirect to the result page
  */
 export async function submitProblemSolution(
   problemId: string, 
   diagramData: DiagramData,
-  submittedAnswers: string[] // Array of strings, indexed to match interviewQuestions
+  submittedAnswers: string[],
+  transcriptHistory?: TranscriptHistoryEntry[],
+  interviewMode?: 'practice' | 'mock'
 ): Promise<string> {
   const session = await getServerSession(NEXT_AUTH_CONFIG);
   if (!session?.user?.id) {
@@ -184,10 +195,16 @@ export async function submitProblemSolution(
 
   // 4. Build submitted answers with questions for context
   const interviewQuestions = problem.interviewQuestions as { Q: string; A: string }[];
-  const answersWithQuestions: SubmittedAnswer[] = interviewQuestions.map((q, index) => ({
-    question: q.Q,
-    answer: submittedAnswers[index] || ''
-  }));
+  const answersWithQuestions: SubmittedAnswer[] = interviewMode === 'mock' 
+    ? [] 
+    : interviewQuestions.map((q, index) => ({
+        question: q.Q,
+        answer: submittedAnswers[index] || ''
+      }));
+
+  const transcriptFormatted = transcriptHistory 
+    ? transcriptHistory.map(entry => `[${entry.role}] ${entry.message}`).join('\n')
+    : '';
 
   // 5. Build comprehensive evaluation prompt (UPDATED to include answers)
   const prompt = `
@@ -202,7 +219,13 @@ Requirements:
 ${JSON.stringify(problem.requirements, null, 2)}
 ═══════════════════════════════════════════════════════════════════
 
-INTERVIEW QUESTIONS (for evaluation of verbal responses):
+${interviewMode === 'mock' ? `
+MOCK INTERVIEW MODE - FULL CONVERSATION TRANSCRIPT:
+═══════════════════════════════════════════════════════════════════
+${transcriptFormatted}
+═══════════════════════════════════════════════════════════════════
+` : `
+PRACTICE MODE - INTERVIEW QUESTIONS:
 ═══════════════════════════════════════════════════════════════════
 ${JSON.stringify(interviewQuestions, null, 2)}
 ═══════════════════════════════════════════════════════════════════
@@ -211,6 +234,7 @@ STUDENT'S SUBMITTED ANSWERS:
 ═══════════════════════════════════════════════════════════════════
 ${JSON.stringify(answersWithQuestions, null, 2)}
 ═══════════════════════════════════════════════════════════════════
+`}
 
 STUDENT'S SUBMITTED SOLUTION:
 ═══════════════════════════════════════════════════════════════════
@@ -249,10 +273,15 @@ Evaluate the solution comprehensively based on these dimensions:
    - Are caching/CDN strategies appropriate?
 
 4. VERBAL EXPLANATION QUALITY (20 points)
-   - Do the submitted answers demonstrate deep understanding of choices?
+   ${interviewMode === 'mock' 
+     ? '- Evaluate the full conversation transcript: clarity of responses, handling of follow-ups, and technical depth.'
+     : '- Do the submitted answers demonstrate deep understanding of choices?'}
    - Are justifications technically sound and specific?
    - Do answers address potential trade-offs and alternatives?
    - Is the communication clear and structured?
+   ${interviewMode === 'mock' 
+     ? '- For mock interviews: assess realistic interview performance including composure and thought process.'
+     : ''}
 
 5. RELIABILITY & BEST PRACTICES (10 points)
    - Single points of failure addressed?
@@ -302,14 +331,16 @@ Evaluate now:`;
       throw new Error("Incomplete evaluation result received");
     }
 
-    // 8. Save submission to database - UPDATED to include submittedAnswers
+    // 8. Save submission to database - UPDATED to include submittedAnswers and transcript
     const submission = await prisma.submission.create({
       data: {
         userId: session.user.id,
         problemId: problemId,
-        submittedDiagramData: diagramData as Prisma.InputJsonValue,
-        submittedAnswers: submittedAnswers as Prisma.InputJsonValue, // NEW: Save answers
-        evaluationResult: evaluationResult as Prisma.InputJsonValue,
+        submittedDiagramData: diagramData as unknown as Prisma.InputJsonValue,
+        submittedAnswers: (interviewMode === 'mock' 
+          ? transcriptHistory 
+          : submittedAnswers) as unknown as Prisma.InputJsonValue,
+        evaluationResult: evaluationResult as unknown as Prisma.InputJsonValue,
       },
     });
 
@@ -899,4 +930,258 @@ export async function getProblem(problemId: string) {
     throw new Error("Problem not found");
   }
   return problem;
+}
+
+interface TranscriptEntry {
+  role: 'AI' | 'User';
+  message: string;
+  timestamp: number;
+  context?: string;
+}
+
+interface ComponentEvent {
+  componentId: string;
+  componentLabel: string;
+  timestamp: number;
+}
+
+interface InterviewerRequest {
+  problemId: string;
+  transcriptHistory: TranscriptEntry[];
+  interviewPhase: 'clarification' | 'design' | 'complete';
+  clarifyingQuestionCount: number;
+  maxClarifyingQuestions: number;
+  componentBatchQueue: ComponentEvent[];
+  globalCooldownTime: number | null;
+  lastInterruptionTime: number | null;
+  trigger: 'user_message' | 'component_added' | 'idle_timeout' | 'structured_time' | 'initial';
+  userMessage?: string;
+}
+
+interface InterviewerResponse {
+  aiMessage: string;
+  shouldLockModal: boolean;
+  newPhase: 'clarification' | 'design' | 'complete';
+  cooldownDuration: number;
+  transitionToDesign: boolean;
+}
+
+const interviewResponseSchema = {
+  type: Type.OBJECT,
+  properties: {
+    aiMessage: { 
+      type: Type.STRING, 
+      description: "The AI interviewer's message or question to the user" 
+    },
+    shouldAskFollowUp: { 
+      type: Type.BOOLEAN, 
+      description: "Whether a follow-up question should be asked if the answer was insufficient" 
+    },
+    followUpQuestion: { 
+      type: Type.STRING, 
+      description: "The follow-up question to ask if shouldAskFollowUp is true" 
+    },
+    scoreLevel: { 
+      type: Type.NUMBER, 
+      description: "Score level from 1-5 indicating answer quality (1=poor, 5=excellent)" 
+    },
+    transitionToDesign: { 
+      type: Type.BOOLEAN, 
+      description: "Whether to transition from clarification to design phase" 
+    },
+  },
+  required: ["aiMessage", "shouldAskFollowUp", "scoreLevel", "transitionToDesign"],
+};
+
+export async function interactWithInterviewer(request: InterviewerRequest): Promise<InterviewerResponse> {
+  const session = await getServerSession(NEXT_AUTH_CONFIG);
+  if (!session?.user?.id) {
+    throw new Error("Unauthorized - Please log in");
+  }
+
+  const now = Date.now();
+  
+  if (request.globalCooldownTime && now < request.globalCooldownTime) {
+    const remainingSeconds = Math.ceil((request.globalCooldownTime - now) / 1000);
+    throw new Error(`Please wait ${remainingSeconds} seconds before the AI can respond.`);
+  }
+
+  const problem = await prisma.problem.findUnique({
+    where: { id: request.problemId, isDeleted: false }
+  });
+
+  if (!problem) {
+    throw new Error("Problem not found");
+  }
+
+  const buildTranscriptContext = (): string => {
+    if (request.transcriptHistory.length === 0) return "No previous conversation.";
+    return request.transcriptHistory
+      .map(entry => `[${entry.role}]: ${entry.message}`)
+      .join('\n');
+  };
+
+  const buildComponentBatchContext = (): string => {
+    if (request.componentBatchQueue.length === 0) return "";
+    return `\nRecent components added:\n${request.componentBatchQueue
+      .map(c => `- ${c.componentLabel} (ID: ${c.componentId})`)
+      .join('\n')}`;
+  };
+
+  let systemPrompt = '';
+  
+  if (request.trigger === 'initial') {
+    systemPrompt = `You are an experienced System Design Interviewer conducting a mock interview.
+
+PROBLEM:
+Title: ${problem.title}
+Difficulty: ${problem.difficulty}
+Requirements: ${JSON.stringify(problem.requirements, null, 2)}
+
+PHASE: ${request.interviewPhase === 'clarification' ? 'CLARIFICATION' : 'HIGH-LEVEL DESIGN'}
+
+INSTRUCTIONS:
+${request.interviewPhase === 'clarification' ? `
+- The user can ask clarifying questions to understand requirements better.
+- You have a STRICT LIMIT of ${request.maxClarifyingQuestions} clarifying questions total.
+- Current count: ${request.clarifyingQuestionCount}/${request.maxClarifyingQuestions}
+- Count EACH distinct question in the user's message.
+- If the total exceeds the limit, IMMEDIATELY set transitionToDesign=true and instruct them to start designing.
+- Be helpful but concise. Answer their questions clearly.
+- If they're not asking questions or say they're ready, transition to design phase.
+` : `
+- The user is now designing their system architecture.
+- You will ask strategic questions about their component choices based on triggers:
+  * Component placement (batched if multiple during cooldown)
+  * Idle time (user hasn't interacted for a while)
+  * Structured intervals (every 5-7 minutes)
+- Ask ONE strategic question focusing on the most critical aspect.
+- If the user's answer is weak (score < 4), you may ask ONE subtle follow-up to probe deeper.
+- If they fail both the initial question AND the follow-up, STOP asking about that topic and move on.
+- Be realistic, challenging, and professional like a real interviewer.
+`}
+
+CONVERSATION HISTORY:
+${buildTranscriptContext()}
+
+Respond now based on the current trigger: ${request.trigger}`;
+
+  } else if (request.trigger === 'user_message') {
+    if (request.interviewPhase === 'clarification') {
+      const questionPattern = /[?]/g;
+      const questionCount = (request.userMessage || '').match(questionPattern)?.length || 0;
+      
+      systemPrompt = `You are a System Design Interviewer in the CLARIFICATION PHASE.
+
+PROBLEM: ${problem.title}
+
+Current clarifying questions asked: ${request.clarifyingQuestionCount}/${request.maxClarifyingQuestions}
+Questions in this message: ${questionCount}
+New total would be: ${request.clarifyingQuestionCount + questionCount}
+
+CONVERSATION HISTORY:
+${buildTranscriptContext()}
+
+USER'S NEW MESSAGE:
+${request.userMessage}
+
+INSTRUCTIONS:
+- Answer the user's clarifying questions clearly and concisely.
+- Count the number of distinct questions (indicated by '?' typically).
+- If new total exceeds ${request.maxClarifyingQuestions}, IMMEDIATELY set transitionToDesign=true and say:
+  "You've reached the maximum number of clarifying questions. Let's move to the design phase. Please start building your architecture diagram."
+- Otherwise, answer helpfully and set transitionToDesign=false.`;
+
+    } else {
+      const lastAIQuestion = request.transcriptHistory
+        .slice()
+        .reverse()
+        .find(entry => entry.role === 'AI' && entry.context === 'question');
+
+      systemPrompt = `You are a System Design Interviewer in the DESIGN PHASE.
+
+PROBLEM: ${problem.title}
+
+CONVERSATION HISTORY:
+${buildTranscriptContext()}
+
+LAST AI QUESTION:
+${lastAIQuestion ? lastAIQuestion.message : 'None'}
+
+USER'S ANSWER:
+${request.userMessage}
+
+INSTRUCTIONS:
+- Evaluate the user's answer to your question.
+- Assign a scoreLevel from 1-5:
+  1-2: Poor/Incorrect answer
+  3: Partial understanding
+  4-5: Good/Excellent answer
+- If scoreLevel < 4 AND this is the FIRST attempt on this topic, set shouldAskFollowUp=true and provide a subtle probe in followUpQuestion.
+- If scoreLevel < 4 AND there was already a follow-up on this topic, set shouldAskFollowUp=false and move on.
+- If scoreLevel >= 4, acknowledge positively and set shouldAskFollowUp=false.
+- ALWAYS set transitionToDesign=false in this phase.`;
+    }
+
+  } else if (request.trigger === 'component_added' || request.trigger === 'structured_time' || request.trigger === 'idle_timeout') {
+    systemPrompt = `You are a System Design Interviewer in the DESIGN PHASE.
+
+PROBLEM: ${problem.title}
+
+CONVERSATION HISTORY:
+${buildTranscriptContext()}
+
+TRIGGER: ${request.trigger}
+${buildComponentBatchContext()}
+
+INSTRUCTIONS:
+- The user has added components or time has passed.
+- Ask ONE strategic, challenging question about their design choices.
+- Focus on the most critical component if multiple were added.
+- Probe scalability, trade-offs, consistency, availability, performance, or architecture patterns.
+- Be professional and realistic like a real interviewer.
+- Set transitionToDesign=false, shouldAskFollowUp=false for initial interrupt questions.`;
+  }
+
+  try {
+    const result = await genAI.models.generateContent({
+      model: "gemini-2.0-flash-exp",
+      contents: systemPrompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: interviewResponseSchema,
+      },
+    });
+
+    const responseText = result?.text?.trim();
+    if (!responseText) {
+      throw new Error("AI response was empty");
+    }
+
+    const aiResponse = JSON.parse(responseText);
+
+    const cooldownDuration = request.interviewPhase === 'clarification' ? 3000 : 8000;
+
+    const shouldLockModal = request.interviewPhase === 'design' || aiResponse.shouldAskFollowUp;
+
+    const newPhase: 'clarification' | 'design' | 'complete' = 
+      aiResponse.transitionToDesign ? 'design' : request.interviewPhase;
+
+    return {
+      aiMessage: aiResponse.aiMessage,
+      shouldLockModal,
+      newPhase,
+      cooldownDuration,
+      transitionToDesign: aiResponse.transitionToDesign || false,
+    };
+
+  } catch (error: unknown) {
+    console.error("Error in interactWithInterviewer:", error);
+    
+    if (error instanceof Error) {
+      throw new Error(`AI interviewer error: ${error.message}`);
+    }
+    
+    throw new Error("An unexpected error occurred during the interview.");
+  }
 }
