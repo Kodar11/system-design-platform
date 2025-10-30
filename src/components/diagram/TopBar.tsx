@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useDiagramStore } from '@/store/diagramStore';
 import { useReactFlow } from 'reactflow';
 import { useRouter, usePathname } from 'next/navigation';
@@ -9,6 +9,7 @@ import Link from 'next/link';
 import ThemeToggle from '@/components/ui/ThemeToggle';
 import { ProblemQaModal } from '@/components/diagram/ProblemQaModal';
 import { ConfigurationTarget } from '@/types/configuration';
+import { debounce } from '@/lib/utils/debounce';
 
 
 
@@ -67,6 +68,12 @@ export const TopBar: React.FC = () => {
   const [problemId, setProblemId] = useState<string | null>(null);
   const [qaData, setQaData] = useState<ProblemQaData | null>(null);
   const [showQaModal, setShowQaModal] = useState(false);
+  
+  // Auto-save state
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const debouncedSaveRef = useRef<ReturnType<typeof debounce> | null>(null);
 
   const { undo, redo, pastStates, futureStates } = useDiagramStore.temporal.getState();
 
@@ -204,12 +211,76 @@ export const TopBar: React.FC = () => {
     }
   };
 
-  const handleSave = (): void => {
-    if (reactFlowInstance) {
+  // Auto-save function
+  const saveToLocalStorage = useCallback(async () => {
+    if (!reactFlowInstance) return;
+    
+    try {
+      setIsSaving(true);
       const flow = reactFlowInstance.toObject();
-      console.log('Saved flow:', flow);
-      alert('Diagram state saved to console!');
+      const key = problemId ? `diagram_${problemId}` : 'diagram_autosave';
+      
+      localStorage.setItem(key, JSON.stringify({
+        ...flow,
+        savedAt: new Date().toISOString(),
+      }));
+      
+      setLastSaved(new Date());
+      setHasUnsavedChanges(false);
+      console.log('✅ Auto-saved diagram to localStorage');
+    } catch (error) {
+      console.error('❌ Auto-save failed:', error);
+    } finally {
+      setIsSaving(false);
     }
+  }, [reactFlowInstance, problemId]);
+
+  // Create debounced save function
+  useEffect(() => {
+    debouncedSaveRef.current = debounce(saveToLocalStorage, 2000);
+    
+    return () => {
+      // Cleanup: flush any pending save on unmount
+      debouncedSaveRef.current?.flush();
+    };
+  }, [saveToLocalStorage]);
+
+  // Track changes to nodes/edges
+  useEffect(() => {
+    if (nodes.length > 0 || edges.length > 0) {
+      setHasUnsavedChanges(true);
+      debouncedSaveRef.current?.();
+    }
+  }, [nodes, edges]);
+
+  // Emergency save on page unload
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges) {
+        debouncedSaveRef.current?.flush();
+        e.preventDefault();
+        e.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [hasUnsavedChanges]);
+
+  // Save immediately when leaving the page
+  useEffect(() => {
+    const handleRouteChange = () => {
+      debouncedSaveRef.current?.flush();
+    };
+
+    return () => {
+      handleRouteChange();
+    };
+  }, []);
+
+  const handleSave = (): void => {
+    debouncedSaveRef.current?.flush();
+    alert('Diagram saved successfully!');
   };
 
   const handleFitView = (): void => {
@@ -380,6 +451,31 @@ export const TopBar: React.FC = () => {
 
         {/* Right Section */}
         <div className="flex items-center gap-3">
+          {/* Auto-save Status Indicator */}
+          <div className="flex items-center gap-2 px-3 py-2 bg-muted/50 rounded-lg text-xs">
+            {isSaving ? (
+              <span className="flex items-center gap-1 text-blue-600 dark:text-blue-400">
+                <svg className="animate-spin h-3 w-3" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                </svg>
+                Saving...
+              </span>
+            ) : hasUnsavedChanges ? (
+              <span className="flex items-center gap-1 text-amber-600 dark:text-amber-400">
+                <span className="h-2 w-2 rounded-full bg-amber-600 dark:bg-amber-400 animate-pulse"></span>
+                Unsaved
+              </span>
+            ) : lastSaved ? (
+              <span className="flex items-center gap-1 text-green-600 dark:text-green-400">
+                <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+                Saved
+              </span>
+            ) : null}
+          </div>
+
           {/* Q&A Modal */}
           {qaData && (
             <button

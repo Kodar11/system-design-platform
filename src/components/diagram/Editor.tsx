@@ -3,18 +3,28 @@
 
 import React, { useCallback, useRef, useState, MouseEvent as ReactMouseEvent, useEffect, useMemo, memo } from 'react';
 import ReactFlow, {
-  Controls,
   Background,
   useReactFlow,
   Node,
-  MiniMap,
   Edge,
 } from 'reactflow';
+import dynamic from 'next/dynamic';
 import { useDiagramStore } from '@/store/diagramStore';
 import ComponentNode from './ComponentNode';
 import TextNode from './TextNode';
 import { usePathname } from 'next/navigation';
 import 'reactflow/dist/style.css';
+
+// Lazy load heavy ReactFlow components
+const Controls = dynamic(() => import('reactflow').then((mod) => mod.Controls), {
+  ssr: false,
+  loading: () => <div className="react-flow__controls" /> // Placeholder
+});
+
+const MiniMap = dynamic(() => import('reactflow').then((mod) => mod.MiniMap), {
+  ssr: false,
+  loading: () => null // MiniMap is optional
+});
 
 // Memoize node types to prevent unnecessary re-renders
 const MemoizedComponentNode = memo(ComponentNode);

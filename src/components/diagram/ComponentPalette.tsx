@@ -1,9 +1,10 @@
 // src/components/diagram/ComponentPalette.tsx
 "use client";
 
-import React, { memo, useCallback } from "react";
+import React, { memo, useCallback, useRef } from "react";
 import Image from "next/image";
 import { useThemeStore } from '@/store/themeStore';
+import { useVirtualizer } from '@tanstack/react-virtual';
 
 interface Component {
   id: string;
@@ -53,6 +54,8 @@ const ComponentItem = memo(({
 ComponentItem.displayName = 'ComponentItem';
 
 function ComponentPalette({ components }: ComponentPaletteProps) {
+  const parentRef = useRef<HTMLDivElement>(null);
+  
   // ✅ Optimized: Only subscribe to theme
   const theme = useThemeStore((state) => state.theme);
   
@@ -66,21 +69,52 @@ function ComponentPalette({ components }: ComponentPaletteProps) {
     console.log("onDragStart - Dragging component with metadata:", metadata);
   }, []);
 
+  // ✅ Virtual scrolling: Only render visible items
+  const rowVirtualizer = useVirtualizer({
+    count: components.length,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 60, // Estimated height of each component item (48px + 12px gap)
+    overscan: 5, // Render 5 extra items above/below viewport
+  });
+
   return (
     <aside className="w-64 bg-card border-r border-border shadow-lg flex flex-col">
       <div className="p-4 border-b border-border">
         <h2 className="text-lg font-bold text-foreground">Components</h2>
+        <p className="text-xs text-muted-foreground mt-1">{components.length} components</p>
       </div>
-      <div className="flex-1 p-4 overflow-y-auto">
-        <div className="flex flex-col gap-3">
-          {components.map((comp) => (
-            <ComponentItem 
-              key={comp.id} 
-              comp={comp} 
-              onDragStart={onDragStart} 
-              isDark={isDark}
-            />
-          ))}
+      <div ref={parentRef} className="flex-1 p-4 overflow-y-auto">
+        <div
+          style={{
+            height: `${rowVirtualizer.getTotalSize()}px`,
+            width: '100%',
+            position: 'relative',
+          }}
+        >
+          {rowVirtualizer.getVirtualItems().map((virtualItem) => {
+            const comp = components[virtualItem.index];
+            return (
+              <div
+                key={virtualItem.key}
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  height: `${virtualItem.size}px`,
+                  transform: `translateY(${virtualItem.start}px)`,
+                }}
+              >
+                <div className="pb-3">
+                  <ComponentItem 
+                    comp={comp} 
+                    onDragStart={onDragStart} 
+                    isDark={isDark}
+                  />
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
     </aside>
