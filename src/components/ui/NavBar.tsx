@@ -53,6 +53,10 @@ export default function NavBar() {
           <div className="flex items-center gap-4">
             <ThemeToggle />
 
+            <Link href="/dashboard" className="hidden sm:inline-flex items-center px-3 py-1 rounded-md text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-accent/20 transition">
+              Dashboard
+            </Link>
+
             {/* Auth Button */}
             {status === 'loading' ? (
               <div className="h-8 w-24 bg-muted rounded-md animate-pulse" />
