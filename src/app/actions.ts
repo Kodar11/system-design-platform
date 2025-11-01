@@ -346,54 +346,47 @@ Evaluate now:`;
       throw new Error("Incomplete evaluation result received");
     }
 
-    // 8. Save submission to database - UPDATED to include submittedAnswers and transcript
-    const submission = await prisma.submission.create({
-      data: {
-        userId: session.user.id,
-        problemId: problemId,
-        submittedDiagramData: diagramData as unknown as Prisma.InputJsonValue,
-        submittedAnswers: (interviewMode === 'mock' 
-          ? transcriptHistory 
-          : submittedAnswers) as unknown as Prisma.InputJsonValue,
-        evaluationResult: evaluationResult as unknown as Prisma.InputJsonValue,
-      },
-    });
+    // 8. Atomically decrement the user's credit and create the submission inside a transaction
+    // This prevents race conditions where multiple concurrent submissions could overdraw credits.
+    const creditField = interviewMode === 'mock' ? 'dailyDesignCredits' : 'dailyProblemCredits';
 
-    // After successful submission, decrement the user's daily credits based on mode.
+    // Build dynamic where/data objects for Prisma
+    const whereClause: any = { id: session.user.id, subscriptionStatus: 'PRO' };
+    whereClause[creditField] = { gt: 0 };
+
+    const dataDecrement: any = { };
+    dataDecrement[creditField] = { decrement: 1 } as any;
+
     try {
-      const user = await prisma.user.findUnique({ where: { id: session.user.id } });
-      if (user) {
-        if (interviewMode === 'mock') {
-          if (user.dailyDesignCredits > 0) {
-            await prisma.user.update({
-              where: { id: user.id },
-              data: { dailyDesignCredits: { decrement: 1 } as any },
-            });
-            console.log('Decremented dailyDesignCredits for user:', user.id);
-          } else {
-            console.warn('User attempted mock submission with zero mock credits:', user.id);
-          }
-        } else {
-          // practice mode
-          if (user.dailyProblemCredits > 0) {
-            await prisma.user.update({
-              where: { id: user.id },
-              data: { dailyProblemCredits: { decrement: 1 } as any },
-            });
-            console.log('Decremented dailyProblemCredits for user:', user.id);
-          } else {
-            console.warn('User attempted practice submission with zero practice credits:', user.id);
-          }
+      const submission = await prisma.$transaction(async (tx) => {
+        const updateResult = await tx.user.updateMany({ where: whereClause, data: dataDecrement });
+        if (!updateResult || updateResult.count !== 1) {
+          // No credit available - throw to rollback the transaction
+          throw new Error('Insufficient credits (concurrent submissions). Please try again.');
         }
+
+        return tx.submission.create({
+          data: {
+            userId: session.user.id,
+            problemId: problemId,
+            submittedDiagramData: diagramData as unknown as Prisma.InputJsonValue,
+            submittedAnswers: (interviewMode === 'mock'
+              ? transcriptHistory
+              : submittedAnswers) as unknown as Prisma.InputJsonValue,
+            evaluationResult: evaluationResult as unknown as Prisma.InputJsonValue,
+          },
+        });
+      });
+
+      console.log('Submission saved successfully:', submission.id);
+      return submission.id;
+    } catch (txErr) {
+      console.error('Failed to create submission with atomic credit decrement:', txErr);
+      if (txErr instanceof Error && txErr.message.includes('Insufficient credits')) {
+        throw txErr; // Propagate user-facing insufficient credit error
       }
-    } catch (creditErr) {
-      console.error('Failed to decrement user credits after submission:', creditErr);
+      throw new Error('Submission failed due to a server error. Please try again.');
     }
-
-    console.log('Submission saved successfully:', submission.id);
-
-    // 9. Return submission ID for redirect
-    return submission.id;
 
   } catch (error: unknown) {
     console.error("Error evaluating solution:", error);

@@ -150,7 +150,10 @@ export const calculateNodeCostAndErrors = (
       const selected = String(value || '');
       const selectedConfig = (configData.configs as Record<string, unknown>)[selected];
       if (selectedConfig) {
-        accumulatedCost += (selectedConfig as { cost_factor?: number }).cost_factor || 0;
+        // Coerce cost_factor to a number and guard against invalid values (NaN, strings with $ etc.)
+        const rawCf = (selectedConfig as any).cost_factor;
+        const cf = Number(rawCf);
+        accumulatedCost += Number.isFinite(cf) ? cf : 0;
         const subResult = calculateNodeCostAndErrors(
           values,
           selectedConfig as Record<string, unknown>,
@@ -175,7 +178,10 @@ export const calculateNodeCostAndErrors = (
     } else if (configData.type) {
       let fieldCost = 0;
       if (configData.type === 'number' && typeof value === 'number') {
-        fieldCost = value * ((configData.cost_factor as number) || 0);
+        // Ensure cost_factor is a finite number before multiplying to avoid NaN
+        const rawCf = (configData as any).cost_factor;
+        const cf = Number(rawCf);
+        fieldCost = Number.isFinite(cf) ? value * cf : 0;
       }
       accumulatedCost += fieldCost;
 
