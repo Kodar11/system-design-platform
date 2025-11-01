@@ -77,28 +77,6 @@ export default async function SubmissionResultPage({ params }: PageProps) {
     <>
     <NavBar/>
     <div className="min-h-screen bg-background p-8">
-      <header className="flex justify-between items-center mb-6 max-w-5xl mx-auto">
-        <Link 
-          href={`/problems/${submission.problemId}`}
-          className="inline-flex items-center text-primary hover:text-primary/80"
-        >
-          <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
-          Back to Problem
-        </Link>
-        <ThemeToggle />
-        <Link
-          href={`/problems/${submission.problemId}/solve`}
-          className="inline-flex items-center px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
-        >
-          Try Again
-          <svg className="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-          </svg>
-        </Link>
-      </header>
-
       <div className="max-w-5xl mx-auto">
         <div className="bg-card rounded-lg shadow-lg overflow-hidden border border-border">
           <div className="bg-gradient-to-r from-primary to-primary/80 p-8 text-primary-foreground">

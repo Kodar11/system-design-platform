@@ -68,6 +68,15 @@ declare global {
 }
 
 // 6. Use the new types for the component props
+// Small inline check icon used in feature lists
+function CheckIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+      <path d="M20 6L9 17l-5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 export default function PaymentClient({ plans }: { plans: Plan[] }) {
   const { update, data: session } = useSession();
   const [loading, setLoading] = useState(false);
@@ -112,11 +121,59 @@ export default function PaymentClient({ plans }: { plans: Plan[] }) {
     }
   };
 
+  // Free tier card to appear first in the one-time column
+  const freeTier = {
+    id: 'free',
+    name: 'Free',
+    priceLabel: 'Free',
+    oneTime: true,
+    mockSessions: 1,
+    practiceCredits: 1,
+    docsAccess: false,
+  };
+
+  // One-time packs (updated per your spec)
   const packs = [
-    { id: 'pack-small', sessions: 1, label: 'Starter Pack', price: 199 },
-    { id: 'pack-medium', sessions: 3, label: 'Pro Pack', price: 499 },
-    { id: 'pack-large', sessions: 10, label: 'Power Pack', price: 1299 },
+    { id: 'pack-starter', sessions: 1, label: 'Starter Pack', price: 99, mockSessions: 1, practiceCredits: 3, expiryMonths: 12, note: 'Perfect for low-usage prep.' },
+    { id: 'pack-pro', sessions: 5, label: 'Pro Pack', price: 499, mockSessions: 5, practiceCredits: 15, expiryMonths: 12, note: '' },
+    { id: 'pack-power', sessions: 15, label: 'Power Pack', price: 1299, mockSessions: 15, practiceCredits: 45, expiryMonths: 12, note: '' },
   ];
+
+  // Subscription plan details (bullets and counts). keys are lowercase for easier lookup.
+  const subscriptionDetails: Record<string, { priceLabel?: string; bullets: string[] }> = {
+    'pro': {
+      priceLabel: '₹799 / month',
+      bullets: [
+        'Everything in the Free Plan, plus:',
+        '✓ 100,000 monthly active users',
+        '✓ 8 GB database size per project',
+        '✓ Daily backups stored for 7 days',
+        '✓ 2 Mock Credits / day (reset)',
+        '✓ 6 Practice Submissions / day (reset)',
+        '✓ Priority email support',
+        '✓ Unlimited diagram exports',
+      ],
+    },
+    'team': {
+      bullets: [
+        'Everything in Pro, plus:',
+        '✓ Higher quotas and team features',
+        '✓ Priority support & SLA',
+      ],
+    },
+    'enterprise': {
+      bullets: [
+        'Includes:',
+        '✓ Dedicated Support Manager',
+        '✓ Uptime SLAs',
+        '✓ SSO & Role-Based Access',
+        '✓ Unlimited Practice Submissions',
+        '✓ Custom Integrations',
+        '✓ Unlimited Mock Sessions',
+        '✓ Unlimited Database Access',
+      ],
+    },
+  };
 
   const handleOneTimePurchase = async (packId: string) => {
     setLoading(true);
@@ -169,42 +226,144 @@ export default function PaymentClient({ plans }: { plans: Plan[] }) {
         id="razorpay-checkout-js"
         src="https://checkout.razorpay.com/v1/checkout.js"
       />
-      <div className="flex flex-col gap-8 justify-center items-center p-8">
-        <h1 className="text-3xl font-bold">Pricing Plans</h1>
-        <div className="flex gap-4">
-          {plans.map((plan) => (
-            <div key={plan.id} className="p-6 border rounded-lg text-center">
-              <h2 className="text-xl font-semibold mb-2">{plan.name}</h2>
-              <p className="text-3xl font-bold mb-4">₹{plan.priceInPaisa / 100}</p>
-              <button
-                onClick={() => handleSubscribe(plan.name)}
-                disabled={loading}
-                className="bg-blue-500 text-white py-2 px-4 rounded"
-              >
-                {loading ? "Loading..." : "Subscribe"}
-              </button>
-            </div>
-          ))}
-        </div>
+      <div className="p-8">
+        <h1 className="text-4xl font-bold text-center mb-10">Pricing Plans</h1>
 
-        <div className="mt-8 w-full max-w-3xl">
-          <h2 className="text-2xl font-semibold mb-4">One-time Credit Packs</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {packs.map((p) => (
-              <div key={p.id} className="p-4 border rounded-lg text-center">
-                <div className="text-lg font-medium mb-2">{p.label}</div>
-                <div className="text-2xl font-bold mb-2">{p.sessions} session{p.sessions > 1 ? 's' : ''}</div>
-                <div className="text-sm text-gray-600 mb-4">Includes {p.sessions * 3} practice credits</div>
-                <div className="text-xl font-semibold mb-4">₹{p.price}</div>
-                <button
-                  onClick={() => handleOneTimePurchase(p.id)}
-                  disabled={loading}
-                  className="bg-green-600 text-white py-2 px-4 rounded"
-                >
-                  {loading ? 'Processing...' : 'Buy'}
-                </button>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-8 items-start">
+          {/* Column 1 - Free tier */}
+          <div className="bg-card border border-border rounded-2xl shadow-xl p-6 flex flex-col justify-between">
+            <div>
+              <h3 className="text-lg font-semibold mb-2">Free</h3>
+              <p className="text-sm text-muted-foreground mb-4">Perfect for a quick trial</p>
+              <div className="bg-background/50 border border-border rounded-lg p-4">
+                <div className="text-lg font-bold mb-2">Free</div>
+                <ul className="text-sm text-muted-foreground ml-0 space-y-2">
+                  <li className="flex items-start gap-2"><CheckIcon className="shrink-0 text-green-400"/> <span>1 Mock Interview Credit (one-time)</span></li>
+                  <li className="flex items-start gap-2"><CheckIcon className="shrink-0 text-green-400"/> <span>1 Practice Submission (one-time)</span></li>
+                  <li className="text-sm text-muted-foreground">No access to docs</li>
+                </ul>
               </div>
-            ))}
+            </div>
+            <div className="mt-6">
+              <button className="w-full bg-green-600 text-white py-2 px-4 rounded-lg shadow-sm hover:bg-green-700 transition">Get started</button>
+            </div>
+          </div>
+
+          {/* Column 2 - One-time packs inside a tall card */}
+          <div className="bg-card border border-border rounded-2xl shadow-xl p-6">
+            <h2 className="text-lg font-semibold mb-6">One-time Credit Packs</h2>
+            <div className="space-y-6">
+              {packs.map((p) => (
+                <div key={p.id} className="border border-border rounded-lg p-6 bg-background/50">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <div className="text-sm font-semibold">{p.label}</div>
+                      {p.note && <div className="text-xs text-muted-foreground">{p.note}</div>}
+                    </div>
+                    <div className="text-right">
+                      <div className="text-lg font-semibold">₹{p.price} One-time</div>
+                    </div>
+                  </div>
+
+                  <ul className="mt-3 text-sm text-muted-foreground ml-0 space-y-2">
+                    <li className="flex items-start gap-2"><CheckIcon className="shrink-0 text-green-400"/> <span>{p.mockSessions} Mock Interview Session{p.mockSessions > 1 ? 's' : ''}</span></li>
+                    <li className="flex items-start gap-2"><CheckIcon className="shrink-0 text-green-400"/> <span>{p.practiceCredits} Practice Submission{p.practiceCredits > 1 ? 's' : ''}</span></li>
+                    <li className="flex items-start gap-2"><CheckIcon className="shrink-0 text-green-400"/> <span>{p.expiryMonths}-Month Credit Expiry</span></li>
+                  </ul>
+
+                  <div className="mt-4">
+                    <button
+                      onClick={() => handleOneTimePurchase(p.id)}
+                      disabled={loading}
+                      className="w-full bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-lg shadow-sm transition"
+                    >
+                      {loading ? 'Processing...' : 'Buy'}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Middle column - Monthly subscription with highlighted style */}
+          <div className="bg-card border-2 border-transparent rounded-xl shadow-lg p-6 md:scale-100 md:transform-none">
+            <h2 className="text-xl font-semibold mb-4">Monthly Subscriptions</h2>
+            <div className="space-y-4">
+              {plans.map((plan, idx) => {
+                const key = plan.name.toLowerCase();
+                const details = subscriptionDetails[key];
+
+                return (
+                  <div key={plan.id} className={`rounded-lg p-6 ${idx === 0 ? 'border border-green-600 bg-gradient-to-b from-green-700/5' : 'border border-border bg-background/50'}`}>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="flex items-center gap-3">
+                          <div className="text-lg font-medium">{plan.name}</div>
+                          {idx === 0 && (
+                            <span className="text-xs bg-green-600 text-white px-2 py-0.5 rounded-full font-semibold">Most popular</span>
+                          )}
+                        </div>
+                        <div className="text-sm text-muted-foreground">Billed monthly</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-2xl font-bold">{details?.priceLabel ?? `₹${plan.priceInPaisa / 100}`}</div>
+                      </div>
+                    </div>
+
+                    {/* Feature bullets */}
+                    {details?.bullets && (
+                      <ul className="mt-4 text-sm text-muted-foreground ml-0 space-y-2">
+                        {details.bullets.map((b, i) => (
+                          <li key={i} className={b.trim().startsWith('✓') ? 'flex items-start gap-2' : ''}>
+                            {b.trim().startsWith('✓') ? <><CheckIcon className="shrink-0 text-green-400"/><span>{b.replace(/^✓\s*/, '')}</span></> : <span>{b}</span>}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+
+                    <div className="mt-4">
+                      <button
+                        onClick={() => handleSubscribe(plan.name)}
+                        disabled={loading}
+                        className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg shadow transition"
+                      >
+                        {loading ? 'Loading...' : 'Subscribe'}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Right column - Enterprise / Contact */}
+          <div className="bg-card border border-border rounded-xl shadow-lg p-6 flex flex-col justify-between">
+            <div>
+              <h2 className="text-lg font-semibold mb-4">Enterprise</h2>
+              <h3 className="text-base font-medium mb-2">Custom Enterprise Plan</h3>
+              <p className="text-sm text-muted-foreground mb-4">For large teams and dedicated support. Includes SSO, SLA, and custom integrations.</p>
+              <ul className="text-sm text-muted-foreground ml-0 space-y-2 mb-4">
+                {subscriptionDetails['enterprise'].bullets.map((b, i) => (
+                  <li key={i} className={b.trim().startsWith('✓') ? 'flex items-start gap-2' : ''}>
+                    {b.trim().startsWith('✓') ? <><CheckIcon className="shrink-0 text-green-400"/><span>{b.replace(/^✓\s*/, '')}</span></> : <span>{b.replace(/^Includes:\s*/, '')}</span>}
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div>
+              {(() => {
+                const supportEmail = process.env.NEXT_PUBLIC_SUPPORT_EMAIL || 'support@archiforge.com';
+                const subject = encodeURIComponent('Enterprise Plan Inquiry');
+                const mailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(supportEmail)}&su=${subject}`;
+
+                return (
+                  <a href={mailUrl} target="_blank" rel="noreferrer" className="inline-block w-full text-center bg-gray-800 text-white py-3 px-4 rounded">
+                    Contact Us
+                  </a>
+                );
+              })()}
+            </div>
           </div>
         </div>
       </div>
