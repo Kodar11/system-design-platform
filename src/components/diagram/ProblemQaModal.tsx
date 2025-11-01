@@ -90,6 +90,12 @@ export const ProblemQaModal: React.FC<ProblemQaModalProps> = ({
 
   const numQuestions = safeQaData?.interviewQuestions.length ?? 0;
 
+  // Choose which questions to show in practice mode:
+  // Prefer interviewQuestions only if they contain at least one non-empty Q field.
+  const questionsToShow: QaItem[] = (safeQaData && safeQaData.interviewQuestions && safeQaData.interviewQuestions.some(q => (q.Q || '').toString().trim().length > 0))
+    ? safeQaData.interviewQuestions
+    : (safeQaData?.initialRequirementsQa ?? []);
+
   const { control, watch, setValue } = useForm<FormData>({
     defaultValues: { answers: new Array(numQuestions).fill('') },
   });
@@ -564,13 +570,25 @@ export const ProblemQaModal: React.FC<ProblemQaModalProps> = ({
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
-          {safeQaData.interviewQuestions.map((item, index) => (
+          {/* Problem Statement (show requirements/answers) */}
+          {safeQaData.initialRequirementsQa && safeQaData.initialRequirementsQa.length > 0 && (
+            <div className="p-4 border rounded-xl dark:border-gray-700 shadow-sm bg-gray-50 dark:bg-gray-800">
+              <h3 className="font-semibold text-gray-900 dark:text-white mb-2">Problem Statement</h3>
+              {safeQaData.initialRequirementsQa.map((item, idx) => (
+                <p key={idx} className="text-sm text-gray-700 dark:text-gray-300 mb-1">
+                  {item.A || item.Q}
+                </p>
+              ))}
+            </div>
+          )}
+
+          {questionsToShow.map((item, index) => (
             <div
               key={index}
               className="p-4 border rounded-xl dark:border-gray-700 shadow-sm space-y-3"
             >
               <h4 className="font-semibold text-gray-900 dark:text-white">
-                Q{index + 1}: {item.Q}
+                Q{index + 1}: {item.Q || item.A}
               </h4>
 
               <Controller
