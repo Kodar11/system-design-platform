@@ -167,6 +167,21 @@ export async function submitProblemSolution(
     throw new Error("Problem not found or has been deleted");
   }
 
+  // Enforce credit checks server-side: user must have credits for the chosen mode
+  const dbUser = await prisma.user.findUnique({ where: { id: session.user.id } });
+  if (!dbUser) {
+    throw new Error("User not found");
+  }
+  if (interviewMode === 'mock') {
+    if (dbUser.subscriptionStatus !== 'PRO' || dbUser.dailyDesignCredits <= 0) {
+      throw new Error('Insufficient mock interview credits. Please upgrade or wait for reset.');
+    }
+  } else {
+    if (dbUser.subscriptionStatus !== 'PRO' || dbUser.dailyProblemCredits <= 0) {
+      throw new Error('Insufficient practice credits. Please upgrade or wait for reset.');
+    }
+  }
+
   // 3. Extract meaningful information from the diagram
   const componentSummary = diagramData.nodes?.map((node) => {
     const componentName = node.data?.label || node.data?.componentId || 'Unknown Component';
@@ -343,6 +358,37 @@ Evaluate now:`;
         evaluationResult: evaluationResult as unknown as Prisma.InputJsonValue,
       },
     });
+
+    // After successful submission, decrement the user's daily credits based on mode.
+    try {
+      const user = await prisma.user.findUnique({ where: { id: session.user.id } });
+      if (user) {
+        if (interviewMode === 'mock') {
+          if (user.dailyDesignCredits > 0) {
+            await prisma.user.update({
+              where: { id: user.id },
+              data: { dailyDesignCredits: { decrement: 1 } as any },
+            });
+            console.log('Decremented dailyDesignCredits for user:', user.id);
+          } else {
+            console.warn('User attempted mock submission with zero mock credits:', user.id);
+          }
+        } else {
+          // practice mode
+          if (user.dailyProblemCredits > 0) {
+            await prisma.user.update({
+              where: { id: user.id },
+              data: { dailyProblemCredits: { decrement: 1 } as any },
+            });
+            console.log('Decremented dailyProblemCredits for user:', user.id);
+          } else {
+            console.warn('User attempted practice submission with zero practice credits:', user.id);
+          }
+        }
+      }
+    } catch (creditErr) {
+      console.error('Failed to decrement user credits after submission:', creditErr);
+    }
 
     console.log('Submission saved successfully:', submission.id);
 
@@ -550,14 +596,84 @@ export async function createRazorpaySubscription(planName: string) {
 
     console.log("Subscription created successfully:", subscription);
 
+    // Ensure the database has a matching User record for the current session.
+    // Some session shapes (or mismatched auth flows) may have an ID that doesn't match the DB user id.
+    // Lookup using session.user.id first, then fall back to session.user.email.
+    let dbUser = await prisma.user.findUnique({ where: { id: session.user.id } });
+    if (!dbUser && session.user.email) {
+      dbUser = await prisma.user.findUnique({ where: { email: session.user.email } });
+    }
+
+    if (!dbUser) {
+      console.warn("No matching DB user found for session when creating payment. Attempting to create a user record from session:", {
+        sessionUserId: session.user.id,
+        sessionUserEmail: session.user.email,
+      });
+
+      // Create a new user record derived from the session so we can attach the Payment.
+      // Ensure unique username and provide a random hashed password since password is required in schema.
+      const emailLower = session.user.email?.toLowerCase() || '';
+      const baseUsername = session.user.username || (emailLower.split('@')[0] || `user_${Math.random().toString(36).slice(2,8)}`);
+
+      // Ensure username uniqueness
+      let uniqueUsername = baseUsername;
+      let attempt = 0;
+      while (await prisma.user.findUnique({ where: { username: uniqueUsername } })) {
+        attempt += 1;
+        uniqueUsername = `${baseUsername}_${Math.floor(Math.random() * 9000) + 1000}`;
+        if (attempt > 5) break; // fallback after a few tries
+      }
+
+      // Generate a random password and hash it (not used, but required by schema)
+      const randomPassword = Math.random().toString(36).slice(2, 12);
+      const hashedPassword = await bcrypt.hash(randomPassword, saltRounds);
+
+      try {
+        dbUser = await prisma.user.create({
+          data: {
+            // Preserve session user id if present to maintain linkage
+            id: session.user.id,
+            email: emailLower,
+            username: uniqueUsername,
+            password: hashedPassword,
+            // role will default to USER in Prisma schema but explicit is okay
+            role: 'USER',
+          },
+        });
+        console.log('Created DB user from session for payment association:', dbUser.id);
+      } catch (createError) {
+        console.error('Failed to create DB user from session:', createError);
+        throw new Error('Failed to create user record for the current session. Please contact support.');
+      }
+    }
+
     await prisma.payment.create({
       data: {
-        userId: session.user.id,
+        userId: dbUser.id,
         planId: plan.id,
         razorpaySubscriptionId: subscription.id,
         status: "PENDING",
       },
     });
+
+    // Immediately mark the user as PRO and reset daily credits so the user gains access
+    // right after a successful subscription creation. Webhook will still reconcile state
+    // (e.g., mark ACTIVE or CANCELLED) when payments are charged; this immediate update
+    // provides a better UX in case webhooks are delayed or don't reach the server.
+    try {
+      await prisma.user.update({
+        where: { id: dbUser.id },
+        data: {
+          subscriptionStatus: "PRO",
+          dailyDesignCredits: 2,
+          dailyProblemCredits: 10,
+          lastCreditReset: new Date(),
+        },
+      });
+      console.log("User provisioned as PRO immediately after subscription creation:", dbUser.id);
+    } catch (userProvisionErr) {
+      console.error("Failed to provision user as PRO after subscription creation:", userProvisionErr);
+    }
 
     return { subscriptionId: subscription.id };
   } catch (error: unknown) { // Use 'unknown' for better type safety
@@ -706,14 +822,19 @@ export async function createUserAfterOtp(email: string, otp: string) {
         if (existingUser) {
             throw new Error("User already exists.");
         }
-        await prisma.user.create({
-            data: {
-                email: emailLower,
-                username,
-                password,
-                role,
-            },
-        });
+    await prisma.user.create({
+      data: {
+        email: emailLower,
+        username,
+        password,
+        role,
+        // New users start with 1 mock and 1 practice credit and FREE status
+        subscriptionStatus: 'FREE',
+        dailyDesignCredits: 1,
+        dailyProblemCredits: 1,
+        lastCreditReset: new Date(),
+      },
+    });
         await prisma.otp.delete({ where: { email: emailLower } });
         console.log(`User ${emailLower} created and OTP cleaned up.`);
     } catch (error: unknown) {

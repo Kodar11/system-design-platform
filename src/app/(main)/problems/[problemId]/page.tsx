@@ -59,6 +59,11 @@ export default async function ProblemDetailPage({
     notFound();
   }
 
+  // Fetch latest user info from DB to reflect credit counts
+  const dbUser = session?.user?.id ? await prisma.user.findUnique({ where: { id: session.user.id } }) : null;
+  const hasPracticeCredits = dbUser ? dbUser.subscriptionStatus === 'PRO' && dbUser.dailyProblemCredits > 0 : false;
+  const hasMockCredits = dbUser ? dbUser.subscriptionStatus === 'PRO' && dbUser.dailyDesignCredits > 0 : false;
+
   const requirements = problem.requirements as {
     description?: string;
     functional_requirements?: string[];
@@ -111,24 +116,51 @@ export default async function ProblemDetailPage({
           </div>
           
           <div className="flex flex-col gap-3">
-            <Link
-              href={`/problems/${problem.id}/solve?mode=practice`}
-              className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white font-bold text-base rounded-xl hover:from-green-700 hover:to-green-800 transform hover:scale-105 transition-all shadow-lg hover:shadow-xl"
-            >
-              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-              📝 Practice Mode
-            </Link>
-            <Link
-              href={`/problems/${problem.id}/solve?mode=mock`}
-              className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold text-base rounded-xl hover:from-blue-700 hover:to-indigo-700 transform hover:scale-105 transition-all shadow-lg hover:shadow-xl"
-            >
-              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-              </svg>
-              🎤 Mock Interview
-            </Link>
+            {hasPracticeCredits ? (
+              <Link
+                href={`/problems/${problem.id}/solve?mode=practice`}
+                className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white font-bold text-base rounded-xl hover:from-green-700 hover:to-green-800 transform hover:scale-105 transition-all shadow-lg hover:shadow-xl"
+              >
+                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                📝 Practice Mode
+              </Link>
+            ) : (
+              <Link
+                href="/payment"
+                className="inline-flex items-center px-6 py-3 bg-gray-400 text-white font-bold text-base rounded-xl opacity-90"
+                title="Insufficient credits - upgrade to Pro"
+              >
+                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                📝 Practice Mode (Upgrade)
+              </Link>
+            )}
+
+            {hasMockCredits ? (
+              <Link
+                href={`/problems/${problem.id}/solve?mode=mock`}
+                className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-bold text-base rounded-xl hover:from-blue-700 hover:to-indigo-700 transform hover:scale-105 transition-all shadow-lg hover:shadow-xl"
+              >
+                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                </svg>
+                🎤 Mock Interview
+              </Link>
+            ) : (
+              <Link
+                href="/payment"
+                className="inline-flex items-center px-6 py-3 bg-gray-400 text-white font-bold text-base rounded-xl opacity-90"
+                title="Insufficient credits - upgrade to Pro"
+              >
+                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                </svg>
+                🎤 Mock Interview (Upgrade)
+              </Link>
+            )}
           </div>
         </div>
 

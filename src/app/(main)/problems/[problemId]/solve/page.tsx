@@ -7,6 +7,10 @@ import FlowProvider from '@/components/diagram/FlowProvider';
 import { ModeInitializer } from '@/components/diagram/ModeInitializer';
 import Editor from '@/components/diagram/EditorWrapper';
 import { getCachedComponents } from '@/lib/cache/componentCache';
+import { getServerSession } from 'next-auth';
+import { NEXT_AUTH_CONFIG } from '@/lib/nextAuthConfig';
+import { prisma } from '@/lib/prisma/userService';
+import { redirect } from 'next/navigation';
 import { getCachedProblems } from '@/lib/cache/problemCache';
 
 // Enable ISR
@@ -39,6 +43,30 @@ export default async function EditorPage({
   console.log("Problem_id:", _problemId, "Mode:", mode);
 
   const interviewMode = mode === 'mock' ? 'mock' : mode === 'practice' ? 'practice' : 'practice';
+
+  // Server-side access control: ensure user is logged in and has credits for the chosen mode.
+  const session = await getServerSession(NEXT_AUTH_CONFIG);
+  if (!session?.user?.id) {
+    redirect('/api/auth/login');
+  }
+
+  const dbUser = await prisma.user.findUnique({ where: { id: session.user.id } });
+  if (!dbUser) {
+    // No DB user — force login/recreate
+    redirect('/api/auth/login');
+  }
+
+  // Check subscription and credits
+  if (interviewMode === 'mock') {
+    if (dbUser.subscriptionStatus !== 'PRO' || dbUser.dailyDesignCredits <= 0) {
+      // Redirect to pricing/payment page
+      redirect(`/payment`);
+    }
+  } else {
+    if (dbUser.subscriptionStatus !== 'PRO' || dbUser.dailyProblemCredits <= 0) {
+      redirect(`/payment`);
+    }
+  }
 
   return (
     <div className="flex flex-col h-screen bg-background">

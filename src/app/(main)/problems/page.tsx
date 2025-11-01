@@ -1,6 +1,7 @@
 import { getServerSession } from 'next-auth';
 import { NEXT_AUTH_CONFIG } from '@/lib/nextAuthConfig';
 import { redirect } from 'next/navigation';
+import { prisma } from '@/lib/prisma/userService';
 import NavBar from '@/components/ui/NavBar';
 import Footer from '@/components/ui/Footer';
 import ProblemsSearch from '@/components/problems/ProblemsSearch';
@@ -18,6 +19,24 @@ export default async function ProblemsPage() {
   
   if (!session?.user?.id) {
     redirect('/api/auth/login');
+  }
+
+  // Ensure user's status and credits: if both mock and practice credits are zero,
+  // set subscriptionStatus to FREE and redirect to payment (block access to problems list)
+  const dbUser = await prisma.user.findUnique({ where: { id: session.user.id } });
+  if (dbUser) {
+    if ((dbUser.dailyDesignCredits ?? 0) <= 0 && (dbUser.dailyProblemCredits ?? 0) <= 0) {
+      if (dbUser.subscriptionStatus !== 'FREE') {
+        try {
+          await prisma.user.update({ where: { id: dbUser.id }, data: { subscriptionStatus: 'FREE' } });
+          console.log('Updated user subscriptionStatus to FREE due to zero credits:', dbUser.id);
+        } catch (err) {
+          console.error('Failed to update user subscriptionStatus to FREE:', err);
+        }
+      }
+      // Redirect user to payment page for upgrade
+      redirect('/payment');
+    }
   }
 
   return (
