@@ -2,6 +2,7 @@ import { NextAuthOptions, DefaultUser, DefaultSession } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma/userService";
+import resetDailyCreditsForUser from '@/lib/prisma/credits';
 import { Role, SubscriptionStatus } from "@prisma/client";
 
 declare module "next-auth" {
@@ -50,7 +51,10 @@ export const NEXT_AUTH_CONFIG: NextAuthOptions = {
           }
 
 
-          const isPasswordValid = await bcrypt.compare(credentials.password, user.password);
+          // Trim stored hash to avoid accidental whitespace/newline issues and
+          // ensure we compare against a string.
+          const storedHash = (user.password || '').toString().trim();
+          const isPasswordValid = await bcrypt.compare(credentials.password, storedHash);
 
           if (!isPasswordValid) {
             throw new Error("Invalid password");
@@ -100,6 +104,19 @@ export const NEXT_AUTH_CONFIG: NextAuthOptions = {
         session.user.subscriptionStatus = token.subscriptionStatus as SubscriptionStatus;
         session.user.dailyDesignCredits = token.dailyDesignCredits as number;
         session.user.dailyProblemCredits = token.dailyProblemCredits as number;
+        // Attempt to reset daily credits on login/session creation. This ensures
+        // users who are redirected to public pages (like '/') still get their
+        // daily allowances updated immediately after sign-in.
+        try {
+          const uid = token.uid as string | undefined;
+          if (uid) {
+            // Fire-and-forget is acceptable but we await here to ensure the
+            // session returns with updated DB values where possible.
+            await resetDailyCreditsForUser(uid);
+          }
+        } catch (err) {
+          console.error('Failed to reset daily credits during session callback:', err);
+        }
       }
       return session;
     },

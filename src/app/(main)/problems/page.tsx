@@ -22,20 +22,17 @@ export default async function ProblemsPage() {
   }
 
   // Ensure user's status and credits: if both mock and practice credits are zero,
-  // set subscriptionStatus to FREE and redirect to payment (block access to problems list)
+  // free users should be redirected to /payment, but PRO users should NOT be
+  // demoted to FREE automatically — they should still be allowed to browse.
   const dbUser = await prisma.user.findUnique({ where: { id: session.user.id } });
   if (dbUser) {
     if ((dbUser.dailyDesignCredits ?? 0) <= 0 && (dbUser.dailyProblemCredits ?? 0) <= 0) {
-      if (dbUser.subscriptionStatus !== 'FREE') {
-        try {
-          await prisma.user.update({ where: { id: dbUser.id }, data: { subscriptionStatus: 'FREE' } });
-          console.log('Updated user subscriptionStatus to FREE due to zero credits:', dbUser.id);
-        } catch (err) {
-          console.error('Failed to update user subscriptionStatus to FREE:', err);
-        }
+      if (dbUser.subscriptionStatus === 'FREE') {
+        // For FREE users with no credits, redirect to payment to encourage upgrade
+        redirect('/payment');
       }
-      // Redirect user to payment page for upgrade
-      redirect('/payment');
+      // If the user is PRO but has 0 credits, do not change subscriptionStatus here.
+      // They should remain PRO (until webhook indicates subscription ended).
     }
   }
 

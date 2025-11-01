@@ -1,5 +1,6 @@
 import { withAuth } from "next-auth/middleware";
 import { NextResponse } from "next/server";
+import resetDailyCreditsForUser from '@/lib/prisma/credits';
 
 // Optimized rate limiting with LRU cache (auto-cleanup old entries)
 class RateLimiter {
@@ -40,6 +41,7 @@ const rateLimiter = new RateLimiter();
 // Static paths for faster lookups
 const PUBLIC_PATHS = new Set([
   "/",
+  "/login",
   "/signup",
   "/verify-email",
   "/api/auth",
@@ -86,6 +88,24 @@ export default withAuth(
       );
     }
 
+    // If a user is signed-in, attempt a non-blocking reset of daily credits
+    // This is fire-and-forget: we don't block the request on DB work.
+  const token = req.nextauth?.token;
+  // token typing from next-auth/middleware is loose; cast to any for runtime checks
+  const t = token as any;
+  // Support the UID field set in our next-auth JWT callback (token.uid)
+  const userId = t?.uid ?? t?.sub ?? t?.id ?? t?.userId ?? t?.user?.id;
+    if (userId) {
+      // eslint-disable-next-line @typescript-eslint/no-floating-promises
+      resetDailyCreditsForUser(String(userId)).catch((err) => {
+        // Log and continue — middleware should not fail the request for reset errors
+        // Use console.error because middleware runs in a server runtime
+        // and we want to see any unexpected errors during resets.
+        // tslint:disable-next-line:no-console
+        console.error('Failed to reset daily credits for user in middleware:', err);
+      });
+    }
+
     return NextResponse.next();
   },
   {
@@ -100,7 +120,8 @@ export default withAuth(
       },
     },
     pages: {
-      signIn: "/api/auth/login",
+      // Use the app route for the sign-in page (avoid redirecting to NextAuth API)
+      signIn: "/login",
     },
   }
 );
