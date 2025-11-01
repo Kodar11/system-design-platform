@@ -56,14 +56,26 @@ export default async function EditorPage({
     redirect('/api/auth/login');
   }
 
-  // Check subscription and credits
+  // Check subscription and credits.
+  // Allow access when user is PRO and either has daily credits (P1) OR has purchased credits (P2) that haven't expired.
+  const now = new Date();
   if (interviewMode === 'mock') {
-    if (dbUser.subscriptionStatus !== 'PRO' || dbUser.dailyDesignCredits <= 0) {
+    const hasMockAccess = dbUser.subscriptionStatus === 'PRO' && (
+      dbUser.dailyDesignCredits > 0 ||
+      (dbUser.purchasedMockCredits > 0 && dbUser.purchasedCreditsExpiresAt && new Date(dbUser.purchasedCreditsExpiresAt) > now)
+    );
+
+    if (!hasMockAccess) {
       // Redirect to pricing/payment page
       redirect(`/payment`);
     }
   } else {
-    if (dbUser.subscriptionStatus !== 'PRO' || dbUser.dailyProblemCredits <= 0) {
+    const hasPracticeAccess = dbUser.subscriptionStatus === 'PRO' && (
+      dbUser.dailyProblemCredits > 0 ||
+      (dbUser.purchasedPracticeCredits > 0 && dbUser.purchasedCreditsExpiresAt && new Date(dbUser.purchasedCreditsExpiresAt) > now)
+    );
+
+    if (!hasPracticeAccess) {
       redirect(`/payment`);
     }
   }

@@ -1,6 +1,9 @@
 import { withAuth } from "next-auth/middleware";
 import { NextResponse } from "next/server";
-import resetDailyCreditsForUser from '@/lib/prisma/credits';
+// Note: we intentionally DO NOT import Prisma-backed helpers here because
+// middleware runs in the Edge runtime and importing Prisma will cause
+// bundling of Node-only APIs. Instead, middleware will call an internal
+// server API route to perform DB work.
 
 // Optimized rate limiting with LRU cache (auto-cleanup old entries)
 class RateLimiter {
@@ -96,13 +99,15 @@ export default withAuth(
   // Support the UID field set in our next-auth JWT callback (token.uid)
   const userId = t?.uid ?? t?.sub ?? t?.id ?? t?.userId ?? t?.user?.id;
     if (userId) {
+      // Fire-and-forget to an internal server route which runs in Node runtime.
+      // We purposely avoid importing DB code in this file to remain Edge-compatible.
+      const resetUrl = new URL('/api/credits/reset', req.nextUrl.origin);
+      resetUrl.searchParams.set('userId', String(userId));
       // eslint-disable-next-line @typescript-eslint/no-floating-promises
-      resetDailyCreditsForUser(String(userId)).catch((err) => {
+      fetch(resetUrl.toString(), { method: 'GET', credentials: 'omit' }).catch((err: unknown) => {
         // Log and continue — middleware should not fail the request for reset errors
-        // Use console.error because middleware runs in a server runtime
-        // and we want to see any unexpected errors during resets.
         // tslint:disable-next-line:no-console
-        console.error('Failed to reset daily credits for user in middleware:', err);
+        console.error('Failed to call internal credit reset endpoint from middleware:', err);
       });
     }
 

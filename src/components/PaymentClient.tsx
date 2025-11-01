@@ -3,7 +3,7 @@
 
 import Script from "next/script";
 import { useState } from "react";
-import { createRazorpaySubscription } from "@/app/actions";
+import { createRazorpaySubscription, createOneTimeOrder, confirmOneTimePayment } from "@/app/actions";
 import { useSession } from "next-auth/react";
 import NavBar from "./ui/NavBar";
 import Footer from "./ui/Footer";
@@ -112,6 +112,56 @@ export default function PaymentClient({ plans }: { plans: Plan[] }) {
     }
   };
 
+  const packs = [
+    { id: 'pack-small', sessions: 1, label: 'Starter Pack', price: 199 },
+    { id: 'pack-medium', sessions: 3, label: 'Pro Pack', price: 499 },
+    { id: 'pack-large', sessions: 10, label: 'Power Pack', price: 1299 },
+  ];
+
+  const handleOneTimePurchase = async (packId: string) => {
+    setLoading(true);
+    try {
+      const orderRes = await createOneTimeOrder(packId);
+      if (!orderRes?.orderId) throw new Error('Failed to create order');
+
+      const options: any = {
+        key: orderRes.keyId || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+        amount: orderRes.amount,
+        currency: orderRes.currency,
+        name: 'ArchiForge',
+        description: `One-time credits purchase (${packId})`,
+        order_id: orderRes.orderId,
+        prefill: { name: user.name, email: user.email },
+        handler: async function (res: RazorpaySuccessResponse) {
+          try {
+            const confirm = await confirmOneTimePayment(res.razorpay_payment_id, res.razorpay_order_id, res.razorpay_signature, packId);
+            if (confirm?.ok) {
+              alert('Payment successful and credits added!');
+              await update();
+            } else {
+              alert('Payment succeeded but failed to record purchase on server.');
+            }
+          } catch (err) {
+            console.error('Confirmation failed', err);
+            alert((err as any)?.message || 'Failed to confirm payment');
+          }
+        },
+      };
+
+      const paymentObject = new (window as any).Razorpay(options);
+      paymentObject.on('payment.failed', function (response: RazorpayFailureResponse) {
+        alert(response.error.description);
+      });
+      paymentObject.open();
+
+    } catch (err) {
+      console.error('One-time purchase failed', err);
+      alert((err as any)?.message || 'Failed to start purchase.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <>
     <NavBar/>
@@ -135,6 +185,27 @@ export default function PaymentClient({ plans }: { plans: Plan[] }) {
               </button>
             </div>
           ))}
+        </div>
+
+        <div className="mt-8 w-full max-w-3xl">
+          <h2 className="text-2xl font-semibold mb-4">One-time Credit Packs</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {packs.map((p) => (
+              <div key={p.id} className="p-4 border rounded-lg text-center">
+                <div className="text-lg font-medium mb-2">{p.label}</div>
+                <div className="text-2xl font-bold mb-2">{p.sessions} session{p.sessions > 1 ? 's' : ''}</div>
+                <div className="text-sm text-gray-600 mb-4">Includes {p.sessions * 3} practice credits</div>
+                <div className="text-xl font-semibold mb-4">₹{p.price}</div>
+                <button
+                  onClick={() => handleOneTimePurchase(p.id)}
+                  disabled={loading}
+                  className="bg-green-600 text-white py-2 px-4 rounded"
+                >
+                  {loading ? 'Processing...' : 'Buy'}
+                </button>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
       <Footer/>

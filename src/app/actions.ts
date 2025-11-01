@@ -7,6 +7,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { NEXT_AUTH_CONFIG } from "@/lib/nextAuthConfig";
 import Razorpay from "razorpay";
+import crypto from 'crypto';
 import { getServerSession } from "next-auth";
 import { Prisma } from "@prisma/client";
 
@@ -172,14 +173,22 @@ export async function submitProblemSolution(
   if (!dbUser) {
     throw new Error("User not found");
   }
-  if (interviewMode === 'mock') {
-    if (dbUser.subscriptionStatus !== 'PRO' || dbUser.dailyDesignCredits <= 0) {
-      throw new Error('Insufficient mock interview credits. Please upgrade or wait for reset.');
+  // Check for available credits either from daily allotment (P1) or purchased packs (P2)
+  // If neither P1 nor P2 has available credits, block the submission.
+  const now = new Date();
+  const hasDaily = interviewMode === 'mock' ? (dbUser.subscriptionStatus === 'PRO' && dbUser.dailyDesignCredits > 0)
+                                             : (dbUser.subscriptionStatus === 'PRO' && dbUser.dailyProblemCredits > 0);
+
+  // Sum up unexpired purchased credits (P2) stored on the User record
+  const purchasedValid = ((dbUser as any).purchasedCreditsExpiresAt && new Date((dbUser as any).purchasedCreditsExpiresAt) >= now);
+  const totalPurchased = purchasedValid ? (interviewMode === 'mock' ? ((dbUser as any).purchasedMockCredits || 0) : ((dbUser as any).purchasedPracticeCredits || 0)) : 0;
+  const hasPurchased = totalPurchased > 0;
+
+  if (!hasDaily && !hasPurchased) {
+    if (interviewMode === 'mock') {
+      throw new Error('Insufficient mock interview credits. Please upgrade, purchase credits, or wait for reset.');
     }
-  } else {
-    if (dbUser.subscriptionStatus !== 'PRO' || dbUser.dailyProblemCredits <= 0) {
-      throw new Error('Insufficient practice credits. Please upgrade or wait for reset.');
-    }
+    throw new Error('Insufficient practice credits. Please upgrade, purchase credits, or wait for reset.');
   }
 
   // 3. Extract meaningful information from the diagram
@@ -346,25 +355,51 @@ Evaluate now:`;
       throw new Error("Incomplete evaluation result received");
     }
 
-    // 8. Atomically decrement the user's credit and create the submission inside a transaction
+    // 8. Atomically consume credits (P1 first, then P2) and create the submission inside a transaction
     // This prevents race conditions where multiple concurrent submissions could overdraw credits.
     const creditField = interviewMode === 'mock' ? 'dailyDesignCredits' : 'dailyProblemCredits';
 
-    // Build dynamic where/data objects for Prisma
-    const whereClause: any = { id: session.user.id, subscriptionStatus: 'PRO' };
-    whereClause[creditField] = { gt: 0 };
-
-    const dataDecrement: any = { };
-    dataDecrement[creditField] = { decrement: 1 } as any;
-
     try {
       const submission = await prisma.$transaction(async (tx) => {
-        const updateResult = await tx.user.updateMany({ where: whereClause, data: dataDecrement });
-        if (!updateResult || updateResult.count !== 1) {
-          // No credit available - throw to rollback the transaction
-          throw new Error('Insufficient credits (concurrent submissions). Please try again.');
+        // Attempt to consume P1 (daily allotment) first if available
+        const dailyUpdate = await tx.user.updateMany({
+          where: { id: session.user.id, subscriptionStatus: 'PRO', [creditField]: { gt: 0 } },
+          data: { [creditField]: { decrement: 1 } as any },
+        });
+
+        if (dailyUpdate.count === 1) {
+          // Successfully consumed daily credit
+          return tx.submission.create({
+            data: {
+              userId: session.user.id,
+              problemId: problemId,
+              submittedDiagramData: diagramData as unknown as Prisma.InputJsonValue,
+              submittedAnswers: (interviewMode === 'mock'
+                ? transcriptHistory
+                : submittedAnswers) as unknown as Prisma.InputJsonValue,
+              evaluationResult: evaluationResult as unknown as Prisma.InputJsonValue,
+            },
+          });
         }
 
+        // If daily consumption failed, attempt to consume from user's purchased credits (P2)
+        const nowTs = new Date();
+        const updateResult = await tx.user.updateMany({
+          where: ({
+            id: session.user.id,
+            purchasedCreditsExpiresAt: { gte: nowTs },
+            ...(interviewMode === 'mock' ? { purchasedMockCredits: { gt: 0 } } : { purchasedPracticeCredits: { gt: 0 } }),
+          } as any),
+          data: (interviewMode === 'mock'
+            ? ({ purchasedMockCredits: { decrement: 1 } } as any)
+            : ({ purchasedPracticeCredits: { decrement: 1 } } as any)),
+        });
+
+        if (!updateResult || updateResult.count !== 1) {
+          throw new Error('Insufficient credits (concurrent modifications or expired purchases). Please try again.');
+        }
+
+        // Create submission after successfully decrementing purchased credits
         return tx.submission.create({
           data: {
             userId: session.user.id,
@@ -381,7 +416,7 @@ Evaluate now:`;
       console.log('Submission saved successfully:', submission.id);
       return submission.id;
     } catch (txErr) {
-      console.error('Failed to create submission with atomic credit decrement:', txErr);
+      console.error('Failed to create submission with atomic credit consumption:', txErr);
       if (txErr instanceof Error && txErr.message.includes('Insufficient credits')) {
         throw txErr; // Propagate user-facing insufficient credit error
       }
@@ -1172,5 +1207,131 @@ INSTRUCTIONS:
     }
     
     throw new Error("An unexpected error occurred during the interview.");
+  }
+}
+
+/**
+ * Create a one-time purchased credit pack (P2).
+ * Sessions -> mockCredits = sessions, practiceCredits = sessions * 3
+ * Expires in ~12 months from purchase time.
+ */
+export async function createOneTimeCreditPack(sessions: number) {
+  const session = await getServerSession(NEXT_AUTH_CONFIG);
+  if (!session?.user?.id) {
+    throw new Error('Unauthorized or session user ID not found');
+  }
+
+  if (!Number.isInteger(sessions) || sessions <= 0) {
+    throw new Error('Invalid sessions count');
+  }
+
+  const mockCredits = sessions;
+  const practiceCredits = sessions * 3;
+  const expiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000); // ~12 months
+
+  try {
+    // Add purchased credits onto the User record and set expiry to ~12 months
+    const updated = await prisma.user.update({
+      where: { id: session.user.id },
+      data: {
+        purchasedMockCredits: { increment: mockCredits } as any,
+        purchasedPracticeCredits: { increment: practiceCredits } as any,
+        purchasedCreditsExpiresAt: expiresAt,
+      } as any,
+    });
+
+    return { ok: true, purchasedMockCredits: (updated as any).purchasedMockCredits };
+  } catch (err) {
+    console.error('Failed to create one-time credit pack:', err);
+    throw new Error('Failed to create purchase. Please try again later.');
+  }
+}
+
+// Mapping of pack ids to amounts (in INR rupees) and sessions for server-side pricing
+const ONE_TIME_PACKS: Record<string, { sessions: number; priceInRupees: number }> = {
+  'pack-small': { sessions: 1, priceInRupees: 199 },
+  'pack-medium': { sessions: 3, priceInRupees: 499 },
+  'pack-large': { sessions: 10, priceInRupees: 1299 },
+};
+
+/**
+ * Create a Razorpay order for a one-time credit pack. Returns orderId and amount.
+ * packId must be one of the server-known pack keys to avoid client tampering.
+ */
+export async function createOneTimeOrder(packId: string) {
+  const session = await getServerSession(NEXT_AUTH_CONFIG);
+  if (!session?.user?.id) throw new Error('Unauthorized');
+
+  const pack = ONE_TIME_PACKS[packId];
+  if (!pack) throw new Error('Invalid pack');
+
+  const amountPaise = Math.round(pack.priceInRupees * 100);
+
+  try {
+    // Create Razorpay order
+    const order = await (razorpay as any).orders.create({
+      amount: amountPaise,
+      currency: 'INR',
+      receipt: `one_time_pack_${packId}_${Date.now()}`,
+      notes: { userId: session.user.id, packId },
+    });
+
+    return {
+      orderId: order.id,
+      amount: amountPaise,
+      currency: order.currency || 'INR',
+      keyId: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || '',
+    };
+  } catch (err) {
+    console.error('Failed to create Razorpay order:', err);
+    throw new Error('Failed to create payment order');
+  }
+}
+
+/**
+ * Confirm a Razorpay payment (client provides payment_id, order_id, signature).
+ * Verifies signature and on success creates the Purchase record and a Payment entry.
+ */
+export async function confirmOneTimePayment(
+  razorpay_payment_id: string,
+  razorpay_order_id: string,
+  razorpay_signature: string,
+  packId: string
+) {
+  const session = await getServerSession(NEXT_AUTH_CONFIG);
+  if (!session?.user?.id) throw new Error('Unauthorized');
+
+  // verify signature
+  const generated = crypto
+    .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET || '')
+    .update(`${razorpay_order_id}|${razorpay_payment_id}`)
+    .digest('hex');
+
+  if (generated !== razorpay_signature) {
+    throw new Error('Invalid payment signature');
+  }
+
+  // Payment is valid — create Purchase and Payment records
+  const pack = ONE_TIME_PACKS[packId];
+  if (!pack) throw new Error('Invalid pack');
+
+  const mockCredits = pack.sessions;
+  const practiceCredits = pack.sessions * 3;
+  const expiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
+
+  try {
+    const updated = await prisma.user.update({
+      where: { id: session.user.id },
+      data: {
+        purchasedMockCredits: { increment: mockCredits } as any,
+        purchasedPracticeCredits: { increment: practiceCredits } as any,
+        purchasedCreditsExpiresAt: expiresAt,
+      } as any,
+    });
+
+    return { ok: true };
+  } catch (err) {
+    console.error('Failed to record confirmed payment:', err);
+    throw new Error('Failed to record purchase');
   }
 }

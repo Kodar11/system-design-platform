@@ -16,6 +16,10 @@ model User {
   subscriptionStatus  SubscriptionStatus @default(FREE)
   dailyDesignCredits  Int                @default(0)
   dailyProblemCredits Int                @default(0)
+  // One-time purchased credits (P2 reserve)
+  purchasedMockCredits     Int       @default(0)
+  purchasedPracticeCredits Int       @default(0)
+  purchasedCreditsExpiresAt DateTime?
   lastCreditReset     DateTime           @default(now())
   createdAt           DateTime           @default(now())
   updatedAt           DateTime           @updatedAt
@@ -55,6 +59,8 @@ model Payment {
   plan                   Plan          @relation(fields: [planId], references: [id])
   user                   User          @relation(fields: [userId], references: [id])
 }
+
+// Removed Purchase model: purchased credits are stored on the User record
 
 model Design {
   id          String   @id @default(uuid())

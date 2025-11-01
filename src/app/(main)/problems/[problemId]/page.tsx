@@ -61,8 +61,21 @@ export default async function ProblemDetailPage({
 
   // Fetch latest user info from DB to reflect credit counts
   const dbUser = session?.user?.id ? await prisma.user.findUnique({ where: { id: session.user.id } }) : null;
-  const hasPracticeCredits = dbUser ? dbUser.subscriptionStatus === 'PRO' && dbUser.dailyProblemCredits > 0 : false;
-  const hasMockCredits = dbUser ? dbUser.subscriptionStatus === 'PRO' && dbUser.dailyDesignCredits > 0 : false;
+  // Allow access if user has daily credits (P1) OR valid purchased credits (P2) that haven't expired.
+  const now = new Date();
+  const hasPracticeCredits = dbUser
+    ? dbUser.subscriptionStatus === 'PRO' && (
+        (dbUser.dailyProblemCredits > 0) ||
+        (dbUser.purchasedPracticeCredits > 0 && dbUser.purchasedCreditsExpiresAt && new Date(dbUser.purchasedCreditsExpiresAt) > now)
+      )
+    : false;
+
+  const hasMockCredits = dbUser
+    ? dbUser.subscriptionStatus === 'PRO' && (
+        (dbUser.dailyDesignCredits > 0) ||
+        (dbUser.purchasedMockCredits > 0 && dbUser.purchasedCreditsExpiresAt && new Date(dbUser.purchasedCreditsExpiresAt) > now)
+      )
+    : false;
 
   const requirements = problem.requirements as {
     description?: string;
