@@ -13,6 +13,7 @@ interface ExtendedSpeechRecognition extends EventTarget {
   lang: string;
   start: () => void;
   stop: () => void;
+  onstart: (() => void) | null;
   onresult: ((event: SpeechRecognitionEvent) => void) | null;
   onerror: ((event: SpeechRecognitionErrorEvent) => void) | null;
   onend: (() => void) | null;
@@ -72,9 +73,11 @@ export const ProblemQaModal: React.FC<ProblemQaModalProps> = ({
   } = useDiagramStore();
 
   const [activeListeningIndex, setActiveListeningIndex] = useState<number | null>(null);
+  const activeListeningIndexRef = useRef<number | null>(null);
   const [recognitionSupported, setRecognitionSupported] = useState(false);
   const recognitionRef = useRef<ExtendedSpeechRecognition | null>(null);
   const [isListening, setIsListening] = useState(false);
+  const [micError, setMicError] = useState<string | null>(null);
   
   const [mockCurrentMessage, setMockCurrentMessage] = useState('');
   const [mockIsLoading, setMockIsLoading] = useState(false);
@@ -107,39 +110,65 @@ export const ProblemQaModal: React.FC<ProblemQaModalProps> = ({
     return { memoizedAnswers: answers, completedAnswers: completed };
   }, [watchedAnswers]);
 
+  // keep a ref copy to avoid recreating SpeechRecognition handlers on every change
+  const memoizedAnswersRef = useRef<any[]>([]);
+  useEffect(() => {
+    memoizedAnswersRef.current = memoizedAnswers;
+  }, [memoizedAnswers]);
+  const toggleLockedRef = useRef(false);
+
   /* ---------- Init Speech Recognition ---------- */
   useEffect(() => {
     if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-      const SpeechRecognition =
-        window.SpeechRecognition || window.webkitSpeechRecognition;
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       const recognitionInstance = new SpeechRecognition();
 
       recognitionInstance.continuous = true;
       recognitionInstance.interimResults = true;
       recognitionInstance.lang = 'en-US';
 
-      recognitionInstance.onresult = (event) => {
-        if (activeListeningIndex === null) return;
+      recognitionInstance.onresult = (event: SpeechRecognitionEvent) => {
+        const idx = activeListeningIndexRef.current;
+        if (idx === null) return;
+        let interimTranscript = '';
         let finalTranscript = '';
+
         for (let i = event.resultIndex; i < event.results.length; i++) {
-          if (event.results[i].isFinal) {
-            finalTranscript += event.results[i][0].transcript;
-          }
+          const transcriptPart = event.results[i][0].transcript;
+          if (event.results[i].isFinal) finalTranscript += transcriptPart;
+          else interimTranscript += transcriptPart;
         }
-        if (finalTranscript) {
-          const updated = (memoizedAnswers[activeListeningIndex] || '') + ' ' + finalTranscript;
-          setValue(`answers.${activeListeningIndex}`, updated.trim());
-        }
+
+        const base = (memoizedAnswersRef.current[idx] || '').trim();
+        const combined = (base ? base + ' ' : '') + finalTranscript + interimTranscript;
+        setValue(`answers.${idx}`, combined.trim());
       };
 
       recognitionInstance.onerror = (event: SpeechRecognitionErrorEvent) => {
         console.error('Speech recognition error:', event.error);
         setIsListening(false);
+        activeListeningIndexRef.current = null;
         setActiveListeningIndex(null);
+
+        const err = event.error;
+        if (err === 'network') setMicError('Network error: Check your internet connection and retry.');
+        else if (err === 'not-allowed') setMicError('Microphone access denied. Click "Enable Microphone" to grant permission.');
+        else if (err === 'service-not-allowed') setMicError('Speech service blocked. Try a different browser.');
+        else if (err === 'audio-capture') setMicError('No microphone found or audio device is unavailable. Check your system settings.');
+        else setMicError(`Speech recognition error: ${err}`);
+      };
+
+      recognitionInstance.onstart = () => {
+        console.log('SpeechRecognition started');
+        // rely on onstart to set listening state
+        setIsListening(true);
+        setMicError(null);
       };
 
       recognitionInstance.onend = () => {
+        console.log('SpeechRecognition ended');
         setIsListening(false);
+        activeListeningIndexRef.current = null;
         setActiveListeningIndex(null);
       };
 
@@ -150,9 +179,12 @@ export const ProblemQaModal: React.FC<ProblemQaModalProps> = ({
     }
 
     return () => {
-      recognitionRef.current?.stop();
+      console.log('Cleaning up SpeechRecognition');
+      try { recognitionRef.current?.stop(); } catch (e) {}
+      recognitionRef.current = null;
     };
-  }, [activeListeningIndex, setValue, memoizedAnswers]);
+    // initialize once on mount
+  }, []);
 
   /* ---------- Voice Controls ---------- */
   const startListening = (index: number) => {
@@ -162,24 +194,75 @@ export const ProblemQaModal: React.FC<ProblemQaModalProps> = ({
     }
     try {
       setActiveListeningIndex(index);
-      setIsListening(true);
+      activeListeningIndexRef.current = index;
+      // stop any previous instance before starting to reduce 'aborted' errors
+      try { recognitionRef.current.stop(); } catch (e) {}
       recognitionRef.current.start();
+      setIsListening(true);
+      // clear any previous mic error when user intentionally starts listening
+      setMicError(null);
     } catch (e) {
       console.error('Failed to start recognition:', e);
+      // Common DOM exceptions for permissions
+      // @ts-ignore
+      if (e && (e.name === 'NotAllowedError' || e.name === 'SecurityError')) {
+        setMicError('Microphone permission denied. Click "Enable Microphone" to grant permission.');
+      }
     }
   };
 
   const stopListening = () => {
     if (recognitionRef.current) {
-      recognitionRef.current.stop();
+      try { recognitionRef.current.stop(); } catch (e) {}
       setIsListening(false);
+      activeListeningIndexRef.current = null;
       setActiveListeningIndex(null);
     }
   };
 
   const toggleListening = (index: number) => {
+    if (toggleLockedRef.current) return;
+    toggleLockedRef.current = true;
+    setTimeout(() => { toggleLockedRef.current = false; }, 600);
+
     if (activeListeningIndex === index && isListening) stopListening();
     else startListening(index);
+  };
+
+  const requestMicAccess = async () => {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      setMicError('Microphone API not available in this browser.');
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // Immediately stop tracks - we just wanted permission
+      stream.getTracks().forEach((t) => t.stop());
+      setMicError(null);
+      // If recognition was previously initialized, try to re-enable
+      if (recognitionRef.current) {
+        const idx = activeListeningIndexRef.current;
+        if (idx !== null && !isListening) {
+          try {
+            recognitionRef.current.start();
+            setIsListening(true);
+            setActiveListeningIndex(idx);
+          } catch (err) {
+            console.warn('Failed to start recognition after granting permission', err);
+          }
+        }
+      }
+    } catch (err: unknown) {
+      console.error('getUserMedia error:', err);
+      // @ts-ignore
+      const name = err && err.name ? err.name : String(err);
+      if (name === 'NotAllowedError' || name === 'SecurityError') {
+        setMicError('Microphone permission denied. Please allow microphone access in your browser.');
+      } else {
+        setMicError('Unable to access microphone. Check that a microphone is connected and not in use by another app.');
+      }
+    }
   };
 
   const clearAnswer = (index: number) => setValue(`answers.${index}`, '');
@@ -539,6 +622,19 @@ export const ProblemQaModal: React.FC<ProblemQaModalProps> = ({
               </div>
             )}
           </div>
+          {micError && (
+            <div className="p-3 mt-2 mx-4 rounded-lg bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 text-sm text-red-700 dark:text-red-300 flex items-center justify-between">
+              <div>{micError}</div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={requestMicAccess}
+                  className="px-3 py-1.5 bg-white dark:bg-gray-800 text-sm rounded-md border border-gray-200 dark:border-gray-700 hover:bg-gray-100"
+                >
+                  Enable Microphone
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -654,6 +750,19 @@ export const ProblemQaModal: React.FC<ProblemQaModalProps> = ({
             <Save className="w-4 h-4" /> Close
           </button>
         </div>
+        {micError && (
+          <div className="p-3 mx-6 mb-6 rounded-lg bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 text-sm text-red-700 dark:text-red-300 flex items-center justify-between">
+            <div>{micError}</div>
+            <div>
+              <button
+                onClick={requestMicAccess}
+                className="px-3 py-1.5 bg-white dark:bg-gray-800 text-sm rounded-md border border-gray-200 dark:border-gray-700 hover:bg-gray-100"
+              >
+                Enable Microphone
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
