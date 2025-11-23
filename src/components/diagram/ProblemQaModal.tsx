@@ -116,6 +116,10 @@ export const ProblemQaModal: React.FC<ProblemQaModalProps> = ({
     memoizedAnswersRef.current = memoizedAnswers;
   }, [memoizedAnswers]);
   const toggleLockedRef = useRef(false);
+  // Track ephemeral interim text per question (shown in UI but not persisted)
+  const [interimMap, setInterimMap] = useState<Record<number, string>>({});
+  // Track last final chunk per question to avoid double-appending
+  const lastFinalMapRef = useRef<Record<number, string>>({});
 
   /* ---------- Init Speech Recognition ---------- */
   useEffect(() => {
@@ -132,16 +136,61 @@ export const ProblemQaModal: React.FC<ProblemQaModalProps> = ({
         if (idx === null) return;
         let interimTranscript = '';
         let finalTranscript = '';
-
         for (let i = event.resultIndex; i < event.results.length; i++) {
           const transcriptPart = event.results[i][0].transcript;
+          // DEBUG: log each chunk the browser returns for inspection
+          // Includes index in results and whether it's final/interim
+          // Remove these logs after diagnosis
+          // eslint-disable-next-line no-console
+          console.log('[SR] resultPart', { questionIdx: idx, resultIndex: i, isFinal: event.results[i].isFinal, transcriptPart });
           if (event.results[i].isFinal) finalTranscript += transcriptPart;
           else interimTranscript += transcriptPart;
         }
 
-        const base = (memoizedAnswersRef.current[idx] || '').trim();
-        const combined = (base ? base + ' ' : '') + finalTranscript + interimTranscript;
-        setValue(`answers.${idx}`, combined.trim());
+        // Trim fragments
+        const finalTrim = finalTranscript.trim();
+        const interimTrim = interimTranscript.trim();
+
+        // Update ephemeral interim display (do not persist)
+        if (interimTrim) {
+          setInterimMap((m) => ({ ...m, [idx]: interimTrim }));
+        } else {
+          setInterimMap((m) => {
+            if (!(idx in m)) return m;
+            const copy = { ...m };
+            delete copy[idx];
+            return copy;
+          });
+        }
+
+        // If there's a final transcript, append it to the persisted answer only if it's not already present
+        if (finalTrim) {
+          const base = (memoizedAnswersRef.current[idx] || '').trim();
+          // DEBUG: show base, final and interim before writing
+          // eslint-disable-next-line no-console
+          console.log('[SR] beforeSetValue', { questionIdx: idx, base, finalTrim, interimTrim, eventResultIndex: event.resultIndex, eventResultsLength: event.results.length });
+
+          const lastFinal = lastFinalMapRef.current[idx] || '';
+          // If base already ends with finalTrim or we already appended this final, skip
+          if (!base.endsWith(finalTrim) && lastFinal !== finalTrim) {
+            const newVal = (base ? base + ' ' : '') + finalTrim;
+            // eslint-disable-next-line no-console
+            console.log('[SR] appendingFinal', { questionIdx: idx, newVal });
+            setValue(`answers.${idx}`, newVal.trim());
+            lastFinalMapRef.current[idx] = finalTrim;
+          } else {
+            // eslint-disable-next-line no-console
+            console.log('[SR] skippingAppend', { questionIdx: idx, base, finalTrim, lastFinal });
+          }
+
+          // After committing final, clear ephemeral interim for this question
+          setInterimMap((m) => {
+            if (!(idx in m)) return m;
+            const copy = { ...m };
+            delete copy[idx];
+            return copy;
+          });
+        }
       };
 
       recognitionInstance.onerror = (event: SpeechRecognitionErrorEvent) => {
@@ -160,12 +209,18 @@ export const ProblemQaModal: React.FC<ProblemQaModalProps> = ({
 
       recognitionInstance.onstart = () => {
         console.log('SpeechRecognition started');
+        // DEBUG: log start event with current active index
+        // eslint-disable-next-line no-console
+        console.log('[SR] onstart', { activeListeningIndex: activeListeningIndexRef.current, time: Date.now() });
         // rely on onstart to set listening state
         setIsListening(true);
         setMicError(null);
       };
 
       recognitionInstance.onend = () => {
+        // DEBUG: log end event with current active index
+        // eslint-disable-next-line no-console
+        console.log('[SR] onend', { activeListeningIndex: activeListeningIndexRef.current, time: Date.now() });
         console.log('SpeechRecognition ended');
         setIsListening(false);
         activeListeningIndexRef.current = null;
@@ -690,13 +745,32 @@ export const ProblemQaModal: React.FC<ProblemQaModalProps> = ({
               <Controller
                 name={`answers.${index}`}
                 control={control}
-                render={({ field }) => (
-                  <textarea
-                    {...field}
-                    placeholder={`Type or speak your answer...`}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 dark:bg-gray-800 focus:ring-2 focus:ring-blue-500 min-h-[120px] resize-y"
-                  />
-                )}
+                render={({ field }) => {
+                  const persisted = (field.value || '').trim();
+                  const interim = interimMap[index] || '';
+                  const display = interim ? (persisted ? persisted + ' ' + interim : interim) : persisted;
+
+                  return (
+                    <textarea
+                      value={display}
+                      onChange={(e) => {
+                        // When user types, persist only their typed value (strip ephemeral interim if present)
+                        let v = e.target.value || '';
+                        if (interim) {
+                          const suffix = persisted ? ' ' + interim : interim;
+                          if (v.endsWith(suffix)) {
+                            v = v.slice(0, v.length - suffix.length).trimEnd();
+                          }
+                        }
+                        setValue(`answers.${index}`, v);
+                      }}
+                      onBlur={field.onBlur}
+                      name={field.name}
+                      placeholder={`Type or speak your answer...`}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 dark:bg-gray-800 focus:ring-2 focus:ring-blue-500 min-h-[120px] resize-y"
+                    />
+                  );
+                }}
               />
 
               <div className="flex items-center gap-3">
