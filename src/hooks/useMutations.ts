@@ -8,8 +8,24 @@ import { submitProblemSolution, createDesign, sendOtp } from '@/app/actions';
  */
 export function useSubmitSolution() {
   const queryClient = useQueryClient();
+  // Local, minimal diagram shape used for client typing
+  type DiagramDataLocal = {
+    nodes?: Array<{ id: string; data?: { label?: string; componentId?: string; metadata?: Record<string, unknown> }; position?: { x: number; y: number } }>;
+    edges?: Array<{ id: string; source: string; target: string; label?: string }>; 
+  };
 
-  return useMutation({
+  type TranscriptHistoryEntryLocal = { role: 'AI' | 'User'; message: string; timestamp: number; context?: string };
+
+  type SubmitSolutionVars = {
+    problemId: string;
+    diagramData: DiagramDataLocal;
+    databaseSchema?: unknown;
+    submittedAnswers?: string[];
+    transcriptHistory?: TranscriptHistoryEntryLocal[];
+    interviewMode: 'practice' | 'mock';
+  };
+
+  return useMutation<unknown, unknown, SubmitSolutionVars>({
     mutationFn: async ({
       problemId,
       diagramData,
@@ -17,14 +33,7 @@ export function useSubmitSolution() {
       submittedAnswers,
       transcriptHistory,
       interviewMode,
-    }: {
-      problemId: string;
-      diagramData: any;
-      databaseSchema?: any;
-      submittedAnswers?: any;
-      transcriptHistory?: any;
-      interviewMode: 'practice' | 'mock';
-    }) => {
+    }: SubmitSolutionVars) => {
       return await submitProblemSolution(
         problemId,
         diagramData,
@@ -34,7 +43,7 @@ export function useSubmitSolution() {
         interviewMode
       );
     },
-    onSuccess: (submissionId, variables) => {
+    onSuccess: (submissionId, variables: SubmitSolutionVars) => {
       // Invalidate problem submissions cache
       queryClient.invalidateQueries({ 
         queryKey: ['problem', variables.problemId, 'submissions'] 
@@ -75,15 +84,12 @@ export function useGenerateDesign() {
  * Hook for sending OTP with rate limiting
  */
 export function useSendOtp() {
-  return useMutation({
-    mutationFn: async ({
-      email,
-      newUserData,
-    }: {
-      email: string;
-      newUserData?: any; // TempUserData type from actions.ts
-    }) => {
-      return await sendOtp(email, newUserData);
+  type TempUserDataLocal = { username: string; password: string; role: string };
+  type SendOtpVars = { email: string; newUserData?: TempUserDataLocal };
+  return useMutation<unknown, unknown, SendOtpVars>({
+    mutationFn: async ({ email, newUserData }: SendOtpVars) => {
+      const payload = newUserData as unknown as Parameters<typeof sendOtp>[1];
+      return await sendOtp(email, payload);
     },
     // Don't retry OTP sends - user should manually retry
     retry: false,

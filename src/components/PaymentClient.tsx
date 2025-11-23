@@ -54,7 +54,7 @@ interface RazorpayOptions {
 
 // 4. Define a specific type for the Razorpay constructor
 interface RazorpayConstructor {
-  new (options: RazorpayOptions): {
+  new (options: Record<string, unknown>): {
     open: () => void;
     on: (event: string, callback: (response: RazorpayFailureResponse) => void) => void;
   };
@@ -108,7 +108,7 @@ export default function PaymentClient({ plans }: { plans: Plan[] }) {
         },
       };
 
-      const paymentObject = new window.Razorpay(options);
+      const paymentObject = new window.Razorpay(options as unknown as Record<string, unknown>);
       paymentObject.on("payment.failed", function (response: RazorpayFailureResponse) {
         alert(response.error.description);
       });
@@ -130,6 +130,29 @@ export default function PaymentClient({ plans }: { plans: Plan[] }) {
     mockSessions: 1,
     practiceCredits: 1,
     docsAccess: false,
+  };
+
+  const handleGetFree = async () => {
+    setLoading(true);
+    try {
+      if (!session) {
+        alert('Please sign in or create an account to claim the Free tier.');
+        return;
+      }
+
+      // No payment required for free tier. Refresh session to reflect any server-side changes.
+      try {
+        await update?.();
+      } catch (e) {
+        console.log(e);
+        
+        
+      }
+
+      alert(`You've claimed the ${freeTier.name} tier. You should see ${freeTier.mockSessions} mock session(s) and ${freeTier.practiceCredits} practice submission(s) in your account.`);
+    } finally {
+      setLoading(false);
+    }
   };
 
   // One-time packs (updated per your spec)
@@ -181,7 +204,7 @@ export default function PaymentClient({ plans }: { plans: Plan[] }) {
       const orderRes = await createOneTimeOrder(packId);
       if (!orderRes?.orderId) throw new Error('Failed to create order');
 
-      const options: any = {
+      const options: Record<string, unknown> = {
         key: orderRes.keyId || process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
         amount: orderRes.amount,
         currency: orderRes.currency,
@@ -200,12 +223,11 @@ export default function PaymentClient({ plans }: { plans: Plan[] }) {
             }
           } catch (err) {
             console.error('Confirmation failed', err);
-            alert((err as any)?.message || 'Failed to confirm payment');
+            alert(err instanceof Error ? err.message : String(err) || 'Failed to confirm payment');
           }
         },
       };
-
-      const paymentObject = new (window as any).Razorpay(options);
+      const paymentObject = new window.Razorpay(options);
       paymentObject.on('payment.failed', function (response: RazorpayFailureResponse) {
         alert(response.error.description);
       });
@@ -213,7 +235,7 @@ export default function PaymentClient({ plans }: { plans: Plan[] }) {
 
     } catch (err) {
       console.error('One-time purchase failed', err);
-      alert((err as any)?.message || 'Failed to start purchase.');
+      alert(err instanceof Error ? err.message : String(err) || 'Failed to start purchase.');
     } finally {
       setLoading(false);
     }
@@ -233,19 +255,19 @@ export default function PaymentClient({ plans }: { plans: Plan[] }) {
           {/* Column 1 - Free tier */}
           <div className="bg-card border border-border rounded-2xl shadow-xl p-6 flex flex-col justify-between">
             <div>
-              <h3 className="text-lg font-semibold mb-2">Free</h3>
+              <h3 className="text-lg font-semibold mb-2">{freeTier.name}</h3>
               <p className="text-sm text-muted-foreground mb-4">Perfect for a quick trial</p>
               <div className="bg-background/50 border border-border rounded-lg p-4">
-                <div className="text-lg font-bold mb-2">Free</div>
+                <div className="text-lg font-bold mb-2">{freeTier.priceLabel}</div>
                 <ul className="text-sm text-muted-foreground ml-0 space-y-2">
-                  <li className="flex items-start gap-2"><CheckIcon className="shrink-0 text-green-400"/> <span>1 Mock Interview Credit (one-time)</span></li>
-                  <li className="flex items-start gap-2"><CheckIcon className="shrink-0 text-green-400"/> <span>1 Practice Submission (one-time)</span></li>
-                  <li className="text-sm text-muted-foreground">No access to docs</li>
+                  <li className="flex items-start gap-2"><CheckIcon className="shrink-0 text-green-400"/> <span>{freeTier.mockSessions} Mock Interview Session{freeTier.mockSessions > 1 ? 's' : ''} (one-time)</span></li>
+                  <li className="flex items-start gap-2"><CheckIcon className="shrink-0 text-green-400"/> <span>{freeTier.practiceCredits} Practice Submission{freeTier.practiceCredits > 1 ? 's' : ''} (one-time)</span></li>
+                  <li className="text-sm text-muted-foreground">{freeTier.docsAccess ? 'Access to docs' : 'No access to docs'}</li>
                 </ul>
               </div>
             </div>
             <div className="mt-6">
-              <button className="w-full bg-green-600 text-white py-2 px-4 rounded-lg shadow-sm hover:bg-green-700 transition">Get started</button>
+              <button onClick={handleGetFree} disabled={loading} className="w-full bg-green-600 text-white py-2 px-4 rounded-lg shadow-sm hover:bg-green-700 transition">{loading ? 'Processing...' : 'Get started'}</button>
             </div>
           </div>
 

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useDiagramStore } from '@/store/diagramStore';
 import { useReactFlow } from 'reactflow';
 import { useRouter, usePathname } from 'next/navigation';
@@ -83,7 +83,6 @@ export const TopBar: React.FC = () => {
   // ✅ Optimized: Selective subscriptions - only re-render when these specific values change
   const interviewMode = useDiagramStore((state) => state.interviewMode);
   const transcriptHistory = useDiagramStore((state) => state.transcriptHistory);
-  const componentBatchQueue = useDiagramStore((state) => state.componentBatchQueue);
   const interviewPhase = useDiagramStore((state) => state.interviewPhase);
 
   // Detect problem mode from URL

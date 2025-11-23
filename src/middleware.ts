@@ -25,7 +25,7 @@ class RateLimiter {
       }
     }
 
-    let ipData = this.cache.get(ip);
+    const ipData = this.cache.get(ip);
 
     if (!ipData || (now - ipData.lastReset > this.duration)) {
       this.cache.set(ip, { count: 1, lastReset: now });
@@ -94,8 +94,8 @@ export default withAuth(
     // If a user is signed-in, attempt a non-blocking reset of daily credits
     // This is fire-and-forget: we don't block the request on DB work.
   const token = req.nextauth?.token;
-  // token typing from next-auth/middleware is loose; cast to any for runtime checks
-  const t = token as any;
+  // token typing from next-auth/middleware is loose; narrow to a lightweight runtime-safe shape
+  const t = token as unknown as { uid?: string; sub?: string; id?: string; userId?: string; user?: { id?: string } } | undefined;
   // Support the UID field set in our next-auth JWT callback (token.uid)
   const userId = t?.uid ?? t?.sub ?? t?.id ?? t?.userId ?? t?.user?.id;
     if (userId) {
@@ -103,7 +103,6 @@ export default withAuth(
       // We purposely avoid importing DB code in this file to remain Edge-compatible.
       const resetUrl = new URL('/api/credits/reset', req.nextUrl.origin);
       resetUrl.searchParams.set('userId', String(userId));
-      // eslint-disable-next-line @typescript-eslint/no-floating-promises
       fetch(resetUrl.toString(), { method: 'GET', credentials: 'omit' }).catch((err: unknown) => {
         // Log and continue — middleware should not fail the request for reset errors
         // tslint:disable-next-line:no-console

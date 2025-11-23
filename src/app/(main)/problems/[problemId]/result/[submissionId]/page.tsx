@@ -5,7 +5,6 @@ import { getServerSession } from 'next-auth';
 import { NEXT_AUTH_CONFIG } from '@/lib/nextAuthConfig';
 import { redirect } from 'next/navigation';
 import { notFound } from 'next/navigation';
-import ThemeToggle from '@/components/ui/ThemeToggle';
 import NavBar from '@/components/ui/NavBar';
 import Footer from '@/components/ui/Footer';
 

@@ -1,20 +1,13 @@
-import { getServerSession } from 'next-auth';
+import { getServerSession, type Session } from 'next-auth';
 import { NEXT_AUTH_CONFIG } from '@/lib/nextAuthConfig';
 import prisma from '@/lib/prisma/client';
 import Link from 'next/link';
 import NavBar from '@/components/ui/NavBar';
+import { log } from 'console';
 
-function formatTimeRemaining(ms: number) {
-  if (ms <= 0) return '0s';
-  const s = Math.floor(ms / 1000);
-  const hh = Math.floor(s / 3600);
-  const mm = Math.floor((s % 3600) / 60);
-  const ss = s % 60;
-  return `${hh}h ${mm}m ${ss}s`;
-}
 
 export default async function DashboardPage() {
-  const session = (await getServerSession(NEXT_AUTH_CONFIG as any)) as any;
+  const session = (await getServerSession(NEXT_AUTH_CONFIG)) as Session | null;
 
   if (!session?.user?.id) {
     return (
@@ -69,19 +62,25 @@ export default async function DashboardPage() {
   const scores: { value: number; date: Date }[] = [];
   for (const s of submissions) {
     try {
-      const evalRes = (s.evaluationResult as any) || {};
-      const score = typeof evalRes === 'object' ? (evalRes.score ?? evalRes?.scoreValue ?? null) : null;
-      if (typeof score === 'number' && !Number.isNaN(score)) {
+      const maybeEval = s.evaluationResult as unknown;
+      let score: number | null = null;
+
+      if (typeof maybeEval === 'object' && maybeEval !== null) {
+        const evalObj = maybeEval as Record<string, unknown>;
+        const candidate = evalObj.score ?? evalObj.scoreValue ?? evalObj.score_value ?? null;
+        if (typeof candidate === 'number' && !Number.isNaN(candidate)) score = candidate;
+      }
+
+      if (typeof score === 'number') {
         scores.push({ value: score, date: s.createdAt });
       }
     } catch (err) {
-      // ignore malformed JSON entries
+      log('Error parsing evaluationResult for submission', s.id, err);
     }
   }
 
   const avgScore = scores.length ? (scores.reduce((a, b) => a + b.value, 0) / scores.length).toFixed(1) : '—';
   const maxScore = scores.length ? Math.max(...scores.map((s) => s.value)) : '—';
-  const latestScore = scores.length ? scores[0] : null;
 
   // Recent submissions (show first 8)
   const recent = submissions.slice(0, 8).map((s) => ({ id: s.id, title: s.problem?.title ?? 'Unknown', date: s.createdAt }));
@@ -104,31 +103,7 @@ export default async function DashboardPage() {
   }
 
   // Compute streaks (consecutive days with at least one submission)
-  const activeDaysSet = new Set(Object.keys(dayCounts));
-  // compute max streak and current streak looking back from today
-  let maxStreak = 0;
-  let curStreak = 0;
-  let tempStreak = 0;
-  // iterate days from oldest to newest
-  for (let i = 0; i < heatmap.length; i++) {
-    const c = heatmap[i].count;
-    if (c > 0) {
-      tempStreak += 1;
-      if (tempStreak > maxStreak) maxStreak = tempStreak;
-    } else {
-      tempStreak = 0;
-    }
-  }
-  // current streak: count back from last day
-  for (let i = heatmap.length - 1; i >= 0; i--) {
-    if (heatmap[i].count > 0) curStreak += 1; else break;
-  }
-
-  // Credit reset time (assume lastCreditReset + 24h)
-  const now = new Date();
-  const lastReset = user?.lastCreditReset ?? now;
-  const nextReset = new Date(new Date(lastReset).getTime() + 24 * 60 * 60 * 1000);
-  const timeRemainingMs = nextReset.getTime() - now.getTime();
+ 
 
   return (
     <>

@@ -1,7 +1,7 @@
 // src/components/diagram/RightPanel.tsx
 "use client";
 
-import React, { useEffect, useMemo, useCallback } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { useForm, Controller, Control, UseFormRegister, UseFormWatch, FieldValues } from 'react-hook-form';
 import { useDiagramStore } from '@/store/diagramStore';
 import { AlertCircle } from 'lucide-react';

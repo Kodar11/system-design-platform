@@ -7,6 +7,21 @@ import { useDiagramStore } from '@/store/diagramStore';
 import { interactWithInterviewer } from '@/app/actions';
 
 /* ---------- Type Declarations ---------- */
+// Minimal, local event shapes to avoid depending on DOM lib types that may be missing
+interface SpeechRecognitionResultItem {
+  0: { transcript: string };
+  isFinal: boolean;
+}
+
+interface SpeechRecognitionEventLike {
+  resultIndex: number;
+  results: SpeechRecognitionResultItem[];
+}
+
+interface SpeechRecognitionErrorEventLike {
+  error: string;
+}
+
 interface ExtendedSpeechRecognition extends EventTarget {
   continuous: boolean;
   interimResults: boolean;
@@ -14,8 +29,8 @@ interface ExtendedSpeechRecognition extends EventTarget {
   start: () => void;
   stop: () => void;
   onstart: (() => void) | null;
-  onresult: ((event: SpeechRecognitionEvent) => void) | null;
-  onerror: ((event: SpeechRecognitionErrorEvent) => void) | null;
+  onresult: ((event: SpeechRecognitionEventLike) => void) | null;
+  onerror: ((event: SpeechRecognitionErrorEventLike) => void) | null;
   onend: (() => void) | null;
 }
 declare global {
@@ -104,14 +119,14 @@ export const ProblemQaModal: React.FC<ProblemQaModalProps> = ({
   });
   const watchedAnswers = watch('answers');
 
-  const { memoizedAnswers, completedAnswers } = useMemo(() => {
+  const { memoizedAnswers } = useMemo(() => {
     const answers = watchedAnswers || [];
     const completed = answers.filter((a) => a.trim().length > 0).length;
     return { memoizedAnswers: answers, completedAnswers: completed };
   }, [watchedAnswers]);
 
   // keep a ref copy to avoid recreating SpeechRecognition handlers on every change
-  const memoizedAnswersRef = useRef<any[]>([]);
+  const memoizedAnswersRef = useRef<string[]>([]);
   useEffect(() => {
     memoizedAnswersRef.current = memoizedAnswers;
   }, [memoizedAnswers]);
@@ -131,19 +146,19 @@ export const ProblemQaModal: React.FC<ProblemQaModalProps> = ({
       recognitionInstance.interimResults = true;
       recognitionInstance.lang = 'en-US';
 
-      recognitionInstance.onresult = (event: SpeechRecognitionEvent) => {
+      recognitionInstance.onresult = (event: unknown) => {
+        const ev = event as SpeechRecognitionEventLike;
         const idx = activeListeningIndexRef.current;
         if (idx === null) return;
         let interimTranscript = '';
         let finalTranscript = '';
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          const transcriptPart = event.results[i][0].transcript;
+        for (let i = ev.resultIndex; i < ev.results.length; i++) {
+          const transcriptPart = ev.results[i][0].transcript;
           // DEBUG: log each chunk the browser returns for inspection
           // Includes index in results and whether it's final/interim
           // Remove these logs after diagnosis
-          // eslint-disable-next-line no-console
-          console.log('[SR] resultPart', { questionIdx: idx, resultIndex: i, isFinal: event.results[i].isFinal, transcriptPart });
-          if (event.results[i].isFinal) finalTranscript += transcriptPart;
+          console.log('[SR] resultPart', { questionIdx: idx, resultIndex: i, isFinal: ev.results[i].isFinal, transcriptPart });
+          if (ev.results[i].isFinal) finalTranscript += transcriptPart;
           else interimTranscript += transcriptPart;
         }
 
@@ -167,19 +182,16 @@ export const ProblemQaModal: React.FC<ProblemQaModalProps> = ({
         if (finalTrim) {
           const base = (memoizedAnswersRef.current[idx] || '').trim();
           // DEBUG: show base, final and interim before writing
-          // eslint-disable-next-line no-console
-          console.log('[SR] beforeSetValue', { questionIdx: idx, base, finalTrim, interimTrim, eventResultIndex: event.resultIndex, eventResultsLength: event.results.length });
+          console.log('[SR] beforeSetValue', { questionIdx: idx, base, finalTrim, interimTrim, eventResultIndex: ev.resultIndex, eventResultsLength: ev.results.length });
 
           const lastFinal = lastFinalMapRef.current[idx] || '';
           // If base already ends with finalTrim or we already appended this final, skip
           if (!base.endsWith(finalTrim) && lastFinal !== finalTrim) {
             const newVal = (base ? base + ' ' : '') + finalTrim;
-            // eslint-disable-next-line no-console
             console.log('[SR] appendingFinal', { questionIdx: idx, newVal });
             setValue(`answers.${idx}`, newVal.trim());
             lastFinalMapRef.current[idx] = finalTrim;
           } else {
-            // eslint-disable-next-line no-console
             console.log('[SR] skippingAppend', { questionIdx: idx, base, finalTrim, lastFinal });
           }
 
@@ -193,13 +205,14 @@ export const ProblemQaModal: React.FC<ProblemQaModalProps> = ({
         }
       };
 
-      recognitionInstance.onerror = (event: SpeechRecognitionErrorEvent) => {
-        console.error('Speech recognition error:', event.error);
+      recognitionInstance.onerror = (event: unknown) => {
+        const ev = event as SpeechRecognitionErrorEventLike;
+        console.error('Speech recognition error:', ev.error);
         setIsListening(false);
         activeListeningIndexRef.current = null;
         setActiveListeningIndex(null);
 
-        const err = event.error;
+        const err = ev.error;
         if (err === 'network') setMicError('Network error: Check your internet connection and retry.');
         else if (err === 'not-allowed') setMicError('Microphone access denied. Click "Enable Microphone" to grant permission.');
         else if (err === 'service-not-allowed') setMicError('Speech service blocked. Try a different browser.');
@@ -210,7 +223,6 @@ export const ProblemQaModal: React.FC<ProblemQaModalProps> = ({
       recognitionInstance.onstart = () => {
         console.log('SpeechRecognition started');
         // DEBUG: log start event with current active index
-        // eslint-disable-next-line no-console
         console.log('[SR] onstart', { activeListeningIndex: activeListeningIndexRef.current, time: Date.now() });
         // rely on onstart to set listening state
         setIsListening(true);
@@ -219,7 +231,6 @@ export const ProblemQaModal: React.FC<ProblemQaModalProps> = ({
 
       recognitionInstance.onend = () => {
         // DEBUG: log end event with current active index
-        // eslint-disable-next-line no-console
         console.log('[SR] onend', { activeListeningIndex: activeListeningIndexRef.current, time: Date.now() });
         console.log('SpeechRecognition ended');
         setIsListening(false);
@@ -235,11 +246,11 @@ export const ProblemQaModal: React.FC<ProblemQaModalProps> = ({
 
     return () => {
       console.log('Cleaning up SpeechRecognition');
-      try { recognitionRef.current?.stop(); } catch (e) {}
+      try { recognitionRef.current?.stop(); } catch (e) { console.log(e); }
       recognitionRef.current = null;
     };
     // initialize once on mount
-  }, []);
+  }, [setValue]);
 
   /* ---------- Voice Controls ---------- */
   const startListening = (index: number) => {
@@ -251,7 +262,7 @@ export const ProblemQaModal: React.FC<ProblemQaModalProps> = ({
       setActiveListeningIndex(index);
       activeListeningIndexRef.current = index;
       // stop any previous instance before starting to reduce 'aborted' errors
-      try { recognitionRef.current.stop(); } catch (e) {}
+      try { recognitionRef.current.stop(); } catch (e) { console.log(e); }
       recognitionRef.current.start();
       setIsListening(true);
       // clear any previous mic error when user intentionally starts listening
@@ -259,7 +270,7 @@ export const ProblemQaModal: React.FC<ProblemQaModalProps> = ({
     } catch (e) {
       console.error('Failed to start recognition:', e);
       // Common DOM exceptions for permissions
-      // @ts-ignore
+      // @ts-expect-error - catching an unknown DOM exception shape
       if (e && (e.name === 'NotAllowedError' || e.name === 'SecurityError')) {
         setMicError('Microphone permission denied. Click "Enable Microphone" to grant permission.');
       }
@@ -268,7 +279,8 @@ export const ProblemQaModal: React.FC<ProblemQaModalProps> = ({
 
   const stopListening = () => {
     if (recognitionRef.current) {
-      try { recognitionRef.current.stop(); } catch (e) {}
+      try { recognitionRef.current.stop(); } catch (e) {console.log(e);
+      }
       setIsListening(false);
       activeListeningIndexRef.current = null;
       setActiveListeningIndex(null);
@@ -310,7 +322,7 @@ export const ProblemQaModal: React.FC<ProblemQaModalProps> = ({
       }
     } catch (err: unknown) {
       console.error('getUserMedia error:', err);
-      // @ts-ignore
+      // @ts-expect-error - normalize unknown error shape to a name
       const name = err && err.name ? err.name : String(err);
       if (name === 'NotAllowedError' || name === 'SecurityError') {
         setMicError('Microphone permission denied. Please allow microphone access in your browser.');

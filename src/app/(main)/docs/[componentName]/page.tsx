@@ -1,10 +1,8 @@
 // src/app/(main)/docs/[componentName]/page.tsx
-import Link from 'next/link';
 import { getServerSession } from 'next-auth';
 import { NEXT_AUTH_CONFIG } from '@/lib/nextAuthConfig';
 import { redirect } from 'next/navigation';
 import { notFound } from 'next/navigation';
-import ThemeToggle from '@/components/ui/ThemeToggle';
 import NavBar from '@/components/ui/NavBar';
 import ThemeAwareIcon from '@/components/ui/ThemeAwareIcon';
 import Footer from '@/components/ui/Footer';

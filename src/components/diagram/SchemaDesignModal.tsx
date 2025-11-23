@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { useForm, useFieldArray } from 'react-hook-form';
+import { useForm, useFieldArray, Control, UseFormRegister } from 'react-hook-form';
 const genId = () => `${Date.now().toString(36)}_${Math.random().toString(36).slice(2,8)}`;
 import { useDiagramStore } from '@/store/diagramStore';
 import type { TableDefinition, ColumnDefinition } from '@/types/schema';
@@ -34,7 +34,7 @@ export const SchemaDesignModal: React.FC<{ isOpen: boolean; onOpenChange: (open:
 
   const onAddTable = () => {
     const newTable: FormTable = { id: genId(), name: 'NewTable', columns: [{ id: genId(), name: 'id', dataType: 'UUID', property: ['Primary Key'], explanation: '' }] };
-    appendTable(newTable as any);
+    appendTable(newTable);
   };
 
   const onSubmit = (data: SchemaForm) => {
@@ -68,7 +68,7 @@ export const SchemaDesignModal: React.FC<{ isOpen: boolean; onOpenChange: (open:
             {tableFields.map((table, tIdx) => (
               <div key={table.id} className="p-3 border rounded-md">
                 <div className="flex items-center justify-between mb-2">
-                  <input {...register(`tables.${tIdx}.name` as const)} defaultValue={table.name as any} className="px-2 py-1 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded" />
+                  <input {...register(`tables.${tIdx}.name` as const)} defaultValue={table.name} className="px-2 py-1 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded" />
                       <div className="flex items-center gap-2">
                         <button type="button" onClick={() => removeTable(tIdx)} className="px-2 py-1 text-sm text-red-600 border border-red-200 dark:border-red-700 rounded hover:bg-red-50 dark:hover:bg-red-900/40">Remove Table</button>
                       </div>
@@ -85,7 +85,7 @@ export const SchemaDesignModal: React.FC<{ isOpen: boolean; onOpenChange: (open:
   );
 };
 
-const TableColumns: React.FC<any> = ({ control, tableIndex, register }) => {
+const TableColumns: React.FC<{ control: Control<SchemaForm>; tableIndex: number; register: UseFormRegister<SchemaForm> }> = ({ control, tableIndex, register }) => {
   const { fields, append, remove } = useFieldArray({ control, name: `tables.${tableIndex}.columns` });
 
   return (
@@ -95,7 +95,7 @@ const TableColumns: React.FC<any> = ({ control, tableIndex, register }) => {
         <button type="button" onClick={() => append({ id: genId(), name: 'col', dataType: 'String', property: [], explanation: '' })} className="px-2 py-1 text-sm bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 rounded hover:bg-gray-200 dark:hover:bg-gray-700">Add Column</button>
       </div>
       <div className="space-y-2">
-        {fields.map((f: any, idx: number) => (
+        {fields.map((f, idx: number) => (
           <div key={f.id} className="grid grid-cols-4 gap-2 items-center">
             <input {...register(`tables.${tableIndex}.columns.${idx}.name` as const)} defaultValue={f.name} className="px-2 py-1 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded" />
             <select {...register(`tables.${tableIndex}.columns.${idx}.dataType` as const)} defaultValue={f.dataType} className="px-2 py-1 border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded">

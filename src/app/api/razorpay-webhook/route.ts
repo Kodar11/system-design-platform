@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
     if (!payment) {
       console.warn("Payment record not found in DB for subscriptionId; attempting fallback via Razorpay API:", subscriptionId);
       try {
-        const subscriptionDetails: any = await razor.subscriptions.fetch(subscriptionId);
+        const subscriptionDetails = await razor.subscriptions.fetch(subscriptionId) as { id?: string; plan_id?: string; customer_id?: string } | null;
         console.log("Fetched subscription from Razorpay:", subscriptionDetails?.id);
 
         const rpPlanId = subscriptionDetails?.plan_id;
@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
         let customerEmail: string | undefined;
         if (rpCustomerId) {
           try {
-            const customer: any = await razor.customers.fetch(rpCustomerId);
+            const customer = await razor.customers.fetch(rpCustomerId) as { email?: string; contact?: string } | null;
             customerEmail = customer?.email || customer?.contact;
             console.log("Fetched Razorpay customer for subscription fallback:", { rpCustomerId, customerEmail });
           } catch (custErr) {
@@ -127,13 +127,13 @@ export async function POST(req: NextRequest) {
 
         // Attempt fallback: fetch subscription/customer from Razorpay to obtain email and update user by email
         try {
-          const subscriptionDetails: any = await razor.subscriptions.fetch(subscriptionId);
+          const subscriptionDetails = await razor.subscriptions.fetch(subscriptionId) as { customer_id?: string } | null;
           const rpCustomerId = subscriptionDetails?.customer_id;
           let customerEmail: string | undefined;
 
           if (rpCustomerId) {
             try {
-              const customer: any = await razor.customers.fetch(rpCustomerId);
+              const customer = await razor.customers.fetch(rpCustomerId) as { email?: string; contact?: string } | null;
               customerEmail = customer?.email || customer?.contact;
               console.log("Fetched customer during user-update fallback:", { rpCustomerId, customerEmail });
             } catch (custErr) {
@@ -186,12 +186,12 @@ export async function POST(req: NextRequest) {
         console.error("Failed to update user during cancellation by userId:", payment.userId, cancelUserErr);
         // Attempt similar fallback by fetching customer email
         try {
-          const subscriptionDetails: any = await razor.subscriptions.fetch(subscriptionId);
+          const subscriptionDetails = await razor.subscriptions.fetch(subscriptionId) as { customer_id?: string } | null;
           const rpCustomerId = subscriptionDetails?.customer_id;
           let customerEmail: string | undefined;
           if (rpCustomerId) {
             try {
-              const customer: any = await razor.customers.fetch(rpCustomerId);
+              const customer = await razor.customers.fetch(rpCustomerId) as { email?: string; contact?: string } | null;
               customerEmail = customer?.email || customer?.contact;
             } catch (custErr) {
               console.warn("Failed to fetch Razorpay customer during cancel fallback:", custErr);

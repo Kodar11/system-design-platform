@@ -19,7 +19,6 @@ export async function GET(req: Request) {
 
     return NextResponse.json({ ok: true });
   } catch (err) {
-    // eslint-disable-next-line no-console
     console.error('Error in /api/credits/reset:', err);
     return NextResponse.json({ error: 'internal' }, { status: 500 });
   }

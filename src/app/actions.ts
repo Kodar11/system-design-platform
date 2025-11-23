@@ -2,7 +2,6 @@
 
 import { prisma } from "@/lib/prisma/userService";
 import bcrypt from "bcryptjs";
-import nodemailer from "nodemailer";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { NEXT_AUTH_CONFIG } from "@/lib/nextAuthConfig";
@@ -30,6 +29,9 @@ interface RazorpaySubscriptionCreateOptions {
 interface RazorpayInstance {
   subscriptions: {
     create: (options: RazorpaySubscriptionCreateOptions) => Promise<RazorpaySubscription>;
+  };
+  orders?: {
+    create: (options: { amount: number; currency: string; receipt: string; notes?: Record<string, string> }) => Promise<{ id: string; currency?: string }>;
   };
 }
 
@@ -140,7 +142,7 @@ interface TranscriptHistoryEntry {
 export async function submitProblemSolution(
   problemId: string,
   diagramData: DiagramData,
-  databaseSchema?: any,
+  databaseSchema?: unknown,
   submittedAnswers: string[] = [],
   transcriptHistory?: TranscriptHistoryEntry[],
   interviewMode?: 'practice' | 'mock'
@@ -181,8 +183,8 @@ export async function submitProblemSolution(
                                              : (dbUser.subscriptionStatus === 'PRO' && dbUser.dailyProblemCredits > 0);
 
   // Sum up unexpired purchased credits (P2) stored on the User record
-  const purchasedValid = ((dbUser as any).purchasedCreditsExpiresAt && new Date((dbUser as any).purchasedCreditsExpiresAt) >= now);
-  const totalPurchased = purchasedValid ? (interviewMode === 'mock' ? ((dbUser as any).purchasedMockCredits || 0) : ((dbUser as any).purchasedPracticeCredits || 0)) : 0;
+  const purchasedValid = !!(dbUser.purchasedCreditsExpiresAt && new Date(dbUser.purchasedCreditsExpiresAt) >= now);
+  const totalPurchased = purchasedValid ? (interviewMode === 'mock' ? (dbUser.purchasedMockCredits || 0) : (dbUser.purchasedPracticeCredits || 0)) : 0;
   const hasPurchased = totalPurchased > 0;
 
   if (!hasDaily && !hasPurchased) {
@@ -368,10 +370,9 @@ Evaluate now:`;
     try {
       const submission = await prisma.$transaction(async (tx) => {
         // Attempt to consume P1 (daily allotment) first if available
-        const dailyUpdate = await tx.user.updateMany({
-          where: { id: session.user.id, subscriptionStatus: 'PRO', [creditField]: { gt: 0 } },
-          data: { [creditField]: { decrement: 1 } as any },
-        });
+        const dailyWhere = { id: session.user.id, subscriptionStatus: 'PRO', [creditField]: { gt: 0 } } as unknown as Prisma.UserWhereInput;
+        const dailyData = { [creditField]: { decrement: 1 } } as unknown as Prisma.UserUpdateManyMutationInput;
+        const dailyUpdate = await tx.user.updateMany({ where: dailyWhere, data: dailyData });
 
         if (dailyUpdate.count === 1) {
           // Successfully consumed daily credit
@@ -391,16 +392,15 @@ Evaluate now:`;
 
         // If daily consumption failed, attempt to consume from user's purchased credits (P2)
         const nowTs = new Date();
-        const updateResult = await tx.user.updateMany({
-          where: ({
-            id: session.user.id,
-            purchasedCreditsExpiresAt: { gte: nowTs },
-            ...(interviewMode === 'mock' ? { purchasedMockCredits: { gt: 0 } } : { purchasedPracticeCredits: { gt: 0 } }),
-          } as any),
-          data: (interviewMode === 'mock'
-            ? ({ purchasedMockCredits: { decrement: 1 } } as any)
-            : ({ purchasedPracticeCredits: { decrement: 1 } } as any)),
-        });
+        const purchasedWhere = ({
+          id: session.user.id,
+          purchasedCreditsExpiresAt: { gte: nowTs },
+          ...(interviewMode === 'mock' ? { purchasedMockCredits: { gt: 0 } } : { purchasedPracticeCredits: { gt: 0 } }),
+        }) as unknown as Prisma.UserWhereInput;
+        const purchasedData = (interviewMode === 'mock'
+          ? { purchasedMockCredits: { decrement: 1 } }
+          : { purchasedPracticeCredits: { decrement: 1 } }) as unknown as Prisma.UserUpdateManyMutationInput;
+        const updateResult = await tx.user.updateMany({ where: purchasedWhere, data: purchasedData });
 
         if (!updateResult || updateResult.count !== 1) {
           throw new Error('Insufficient credits (concurrent modifications or expired purchases). Please try again.');
@@ -1242,13 +1242,13 @@ export async function createOneTimeCreditPack(sessions: number) {
     const updated = await prisma.user.update({
       where: { id: session.user.id },
       data: {
-        purchasedMockCredits: { increment: mockCredits } as any,
-        purchasedPracticeCredits: { increment: practiceCredits } as any,
+        purchasedMockCredits: { increment: mockCredits } as unknown as Prisma.UserUpdateInput,
+        purchasedPracticeCredits: { increment: practiceCredits } as unknown as Prisma.UserUpdateInput,
         purchasedCreditsExpiresAt: expiresAt,
-      } as any,
+      } as unknown as Prisma.UserUpdateInput,
     });
 
-    return { ok: true, purchasedMockCredits: (updated as any).purchasedMockCredits };
+    return { ok: true, purchasedMockCredits: updated.purchasedMockCredits };
   } catch (err) {
     console.error('Failed to create one-time credit pack:', err);
     throw new Error('Failed to create purchase. Please try again later.');
@@ -1277,7 +1277,7 @@ export async function createOneTimeOrder(packId: string) {
 
   try {
     // Create Razorpay order
-    const order = await (razorpay as any).orders.create({
+    const order = await (razorpay as unknown as { orders: { create: (opts: { amount: number; currency: string; receipt: string; notes?: Record<string, string> }) => Promise<{ id: string; currency?: string }> } }).orders.create({
       amount: amountPaise,
       currency: 'INR',
       receipt: `one_time_pack_${packId}_${Date.now()}`,
@@ -1328,15 +1328,15 @@ export async function confirmOneTimePayment(
   const expiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
 
   try {
-    const updated = await prisma.user.update({
+    await prisma.user.update({
       where: { id: session.user.id },
       data: {
-        purchasedMockCredits: { increment: mockCredits } as any,
-        purchasedPracticeCredits: { increment: practiceCredits } as any,
+        purchasedMockCredits: { increment: mockCredits } as unknown as Prisma.UserUpdateInput,
+        purchasedPracticeCredits: { increment: practiceCredits } as unknown as Prisma.UserUpdateInput,
         purchasedCreditsExpiresAt: expiresAt,
-      } as any,
+      } as unknown as Prisma.UserUpdateInput,
     });
-
+    
     return { ok: true };
   } catch (err) {
     console.error('Failed to record confirmed payment:', err);

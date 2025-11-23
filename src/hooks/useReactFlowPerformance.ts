@@ -1,20 +1,20 @@
 // Custom hook for ReactFlow performance optimizations
 import { useCallback, useMemo } from 'react';
-import { Edge } from 'reactflow';
+import { Edge, NodeChange } from 'reactflow';
 
 // Hook to optimize node/edge changes
 export const useReactFlowPerformance = () => {
   // Throttle node changes for better performance during dragging
-  const throttleNodeChanges = useCallback((changes: any[]) => {
+  const throttleNodeChanges = useCallback((changes: NodeChange[]) => {
     // Group position changes together
-    const positionChanges = changes.filter(c => c.type === 'position');
-    const otherChanges = changes.filter(c => c.type !== 'position');
+    const positionChanges = changes.filter((c) => c.type === 'position');
+    const otherChanges = changes.filter((c) => c.type !== 'position');
     
     if (positionChanges.length > 5) {
       // Only apply last position change for each node during rapid updates
-      const latestPositions = new Map();
-      positionChanges.forEach(change => {
-        latestPositions.set(change.id, change);
+      const latestPositions = new Map<string, NodeChange>();
+      positionChanges.forEach((change) => {
+        if (typeof change.id === 'string') latestPositions.set(change.id, change);
       });
       return [...otherChanges, ...Array.from(latestPositions.values())];
     }
