@@ -1,14 +1,21 @@
 // src/components/diagram/TextNode.tsx
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { NodeProps } from 'reactflow';
 import { useDiagramStore } from '@/store/diagramStore';
 
 const TextNode = ({ data, selected, id }: NodeProps) => {
-  const { updateNodeProperties } = useDiagramStore();
+  const { updateNodeProperties, updateNode } = useDiagramStore();
   const [content, setContent] = useState(data.label || '');
   const [isDark, setIsDark] = useState(false);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const resizingRef = useRef(false);
+  const startRef = useRef({ x: 0, y: 0, width: 0, height: 0 });
+  const [localSize, setLocalSize] = useState<{ width: number; height: number }>(() => ({
+    width: (data.style && (data.style as any).width) || 150,
+    height: (data.style && (data.style as any).height) || 100,
+  }));
 
   useEffect(() => {
     setContent(data.label || '');
@@ -47,14 +54,92 @@ const TextNode = ({ data, selected, id }: NodeProps) => {
     setContent(e.currentTarget.innerText);
   };
 
+  // Keep localSize in sync if external data.style changes
+  useEffect(() => {
+    const w = (data.style && (data.style as any).width) || 150;
+    const h = (data.style && (data.style as any).height) || 100;
+    setLocalSize({ width: w, height: h });
+  }, [data.style]);
+
+  const startResizing = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.stopPropagation();
+    e.preventDefault();
+    resizingRef.current = true;
+    // try to capture the pointer on the target for robustness
+    try {
+      (e.target as Element)?.setPointerCapture?.(e.pointerId);
+    } catch (err) {
+      // ignore if not supported
+    }
+    startRef.current = {
+      x: e.clientX,
+      y: e.clientY,
+      width: localSize.width,
+      height: localSize.height,
+    };
+    document.addEventListener('pointermove', onPointerMove as EventListener);
+    document.addEventListener('pointerup', stopPointerResizing as EventListener);
+  };
+
+  const onPointerMove = (ev: PointerEvent) => {
+    if (!resizingRef.current) return;
+    ev.preventDefault();
+    const dx = ev.clientX - startRef.current.x;
+    const dy = ev.clientY - startRef.current.y;
+    const minW = 80;
+    const minH = 40;
+    const newW = Math.max(minW, Math.round(startRef.current.width + dx));
+    const newH = Math.max(minH, Math.round(startRef.current.height + dy));
+    setLocalSize({ width: newW, height: newH });
+    // live update to store for other logic (throttling not added for simplicity)
+    // write size to top-level node properties so React Flow preserves it
+    try {
+      updateNode(id, {
+        style: { ...(data.style || {}), width: newW, height: newH },
+        width: newW,
+        height: newH,
+      });
+    } catch (err) {
+      // fallback to updating data if updateNode isn't available
+      updateNodeProperties(id, { style: { ...(data.style || {}), width: newW, height: newH } });
+    }
+  };
+
+  const stopPointerResizing = (ev?: PointerEvent) => {
+    if (!resizingRef.current) return;
+    resizingRef.current = false;
+    document.removeEventListener('pointermove', onPointerMove as EventListener);
+    document.removeEventListener('pointerup', stopPointerResizing as EventListener);
+    // final write to ensure store is consistent; update top-level width/height too
+    try {
+      updateNode(id, {
+        style: { ...(data.style || {}), width: localSize.width, height: localSize.height },
+        width: localSize.width,
+        height: localSize.height,
+      });
+    } catch (err) {
+      updateNodeProperties(id, { style: { ...(data.style || {}), width: localSize.width, height: localSize.height } });
+    }
+  };
+
+  // cleanup listeners on unmount in case component is removed while dragging
+  useEffect(() => {
+    return () => {
+      document.removeEventListener('pointermove', onPointerMove as EventListener);
+      document.removeEventListener('pointerup', stopPointerResizing as EventListener);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
     <div
-      className={`p-2 rounded border-2 overflow-auto text-sm leading-relaxed`}
+      ref={containerRef}
+      className={`relative p-2 rounded border-2 overflow-auto text-sm leading-relaxed`}
       style={{
         minWidth: 100,
         minHeight: 50,
-        width: data.style?.width || 150,
-        height: data.style?.height || 100,
+        width: localSize.width,
+        height: localSize.height,
         outline: 'none',
         whiteSpace: 'pre-wrap',
         wordBreak: 'break-word',
@@ -72,8 +157,37 @@ const TextNode = ({ data, selected, id }: NodeProps) => {
         onKeyDown={(e) => e.stopPropagation()}
         tabIndex={0}
         aria-label="Text node editor"
-        style={{ minHeight: 24, color: isDark ? '#e6eef8' : '#0f172a', caretColor: isDark ? '#ffffff' : '#000000' }}
+        style={{
+          minHeight: 24,
+          color: isDark ? '#e6eef8' : '#0f172a',
+          caretColor: isDark ? '#ffffff' : '#000000',
+          width: '100%',
+          height: '100%',
+          outline: 'none',
+        }}
         dangerouslySetInnerHTML={{ __html: (content || '').replace(/\n/g, '<br>') }}
+      />
+
+      {/* Resize handle (bottom-right) */}
+      <div
+        role="separator"
+        onPointerDown={startResizing}
+        onClick={(e) => e.stopPropagation()}
+        title="Resize"
+        style={{
+          position: 'absolute',
+          right: 6,
+          bottom: 6,
+          // slightly larger hit area for easier dragging
+          width: 18,
+          height: 18,
+          borderRadius: 2,
+          background: selected ? (isDark ? '#60a5fa' : '#3b82f6') : (isDark ? '#374151' : '#e5e7eb'),
+          cursor: 'nwse-resize',
+          zIndex: 30,
+          boxShadow: '0 0 0 1px rgba(0,0,0,0.06) inset',
+          touchAction: 'none',
+        }}
       />
     </div>
   );
