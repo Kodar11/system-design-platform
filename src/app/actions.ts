@@ -138,9 +138,10 @@ interface TranscriptHistoryEntry {
  * @returns The submission ID to redirect to the result page
  */
 export async function submitProblemSolution(
-  problemId: string, 
+  problemId: string,
   diagramData: DiagramData,
-  submittedAnswers: string[],
+  databaseSchema?: any,
+  submittedAnswers: string[] = [],
   transcriptHistory?: TranscriptHistoryEntry[],
   interviewMode?: 'practice' | 'mock'
 ): Promise<string> {
@@ -276,6 +277,11 @@ Complete Diagram Structure:
 ${JSON.stringify({ components: componentSummary, connections: connectionSummary }, null, 2)}
 ═══════════════════════════════════════════════════════════════════
 
+STUDENT'S SUBMITTED DATABASE SCHEMA:
+═══════════════════════════════════════════════════════════════════
+${databaseSchema && Array.isArray(databaseSchema) && databaseSchema.length > 0 ? JSON.stringify(databaseSchema, null, 2) : 'NO DATABASE SCHEMA PROVIDED'}
+═══════════════════════════════════════════════════════════════════
+
 EVALUATION CRITERIA:
 Evaluate the solution comprehensively based on these dimensions:
 
@@ -374,9 +380,10 @@ Evaluate now:`;
               userId: session.user.id,
               problemId: problemId,
               submittedDiagramData: diagramData as unknown as Prisma.InputJsonValue,
-              submittedAnswers: (interviewMode === 'mock'
-                ? transcriptHistory
-                : submittedAnswers) as unknown as Prisma.InputJsonValue,
+              submittedAnswers: ({
+                answers: (interviewMode === 'mock' ? transcriptHistory : submittedAnswers),
+                databaseSchema: databaseSchema || null
+              }) as unknown as Prisma.InputJsonValue,
               evaluationResult: evaluationResult as unknown as Prisma.InputJsonValue,
             },
           });
@@ -405,9 +412,10 @@ Evaluate now:`;
             userId: session.user.id,
             problemId: problemId,
             submittedDiagramData: diagramData as unknown as Prisma.InputJsonValue,
-            submittedAnswers: (interviewMode === 'mock'
-              ? transcriptHistory
-              : submittedAnswers) as unknown as Prisma.InputJsonValue,
+            submittedAnswers: ({
+              answers: (interviewMode === 'mock' ? transcriptHistory : submittedAnswers),
+              databaseSchema: databaseSchema || null
+            }) as unknown as Prisma.InputJsonValue,
             evaluationResult: evaluationResult as unknown as Prisma.InputJsonValue,
           },
         });

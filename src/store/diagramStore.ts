@@ -13,6 +13,7 @@ import {
   ReactFlowInstance,
   ConnectionLineType,
 } from 'reactflow';
+import type { TableDefinition } from '@/types/schema';
 
 import { ConfigurationTarget } from '@/types/configuration';
 
@@ -79,6 +80,15 @@ interface DiagramState {
   clarifyingQuestionCount: number;
   lastInterruptionTime: number | null;
   interviewPhase: 'clarification' | 'design' | 'complete';
+
+  // Database schema for submission (tables + columns)
+  databaseSchema: TableDefinition[];
+
+  // Schema actions
+  setDatabaseSchema: (schema: TableDefinition[]) => void;
+  addTable: (table: TableDefinition) => void;
+  updateTable: (tableId: string, updates: Partial<TableDefinition>) => void;
+  removeTable: (tableId: string) => void;
 
   onNodesChange: (changes: NodeChange[]) => void;
   onEdgesChange: (changes: EdgeChange[]) => void;
@@ -433,6 +443,17 @@ export const useDiagramStore = create<DiagramState>()(
         lastInterruptionTime: null,
         interviewPhase: 'clarification'
       }),
+      // Database schema state & actions
+      databaseSchema: [],
+      setDatabaseSchema: (schema: TableDefinition[]) => set({ databaseSchema: schema }),
+      addTable: (table: TableDefinition) => set((state) => ({ databaseSchema: [...state.databaseSchema, table] })),
+      updateTable: (tableId: string, updates: Partial<TableDefinition>) =>
+        set((state) => ({
+          databaseSchema: state.databaseSchema.map((t) => (t.id === tableId ? { ...t, ...updates } : t)),
+        })),
+      removeTable: (tableId: string) => set((state) => ({
+        databaseSchema: state.databaseSchema.filter((t) => t.id !== tableId),
+      })),
     }),
     {
       partialize: (state) => ({ nodes: state.nodes, edges: state.edges }),

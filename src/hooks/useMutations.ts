@@ -13,12 +13,14 @@ export function useSubmitSolution() {
     mutationFn: async ({
       problemId,
       diagramData,
+      databaseSchema,
       submittedAnswers,
       transcriptHistory,
       interviewMode,
     }: {
       problemId: string;
       diagramData: any;
+      databaseSchema?: any;
       submittedAnswers?: any;
       transcriptHistory?: any;
       interviewMode: 'practice' | 'mock';
@@ -26,6 +28,7 @@ export function useSubmitSolution() {
       return await submitProblemSolution(
         problemId,
         diagramData,
+        databaseSchema,
         submittedAnswers,
         transcriptHistory,
         interviewMode

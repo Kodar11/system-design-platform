@@ -8,6 +8,7 @@ import { submitProblemSolution, getProblem } from '@/app/actions';
 import Link from 'next/link';
 import ThemeToggle from '@/components/ui/ThemeToggle';
 import { ProblemQaModal } from '@/components/diagram/ProblemQaModal';
+import SchemaDesignModal from '@/components/diagram/SchemaDesignModal';
 import { ConfigurationTarget } from '@/types/configuration';
 import { debounce } from '@/lib/utils/debounce';
 
@@ -68,6 +69,7 @@ export const TopBar: React.FC = () => {
   const [problemId, setProblemId] = useState<string | null>(null);
   const [qaData, setQaData] = useState<ProblemQaData | null>(null);
   const [showQaModal, setShowQaModal] = useState(false);
+  const [showSchemaModal, setShowSchemaModal] = useState(false);
   
   // Auto-save state
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
@@ -76,6 +78,7 @@ export const TopBar: React.FC = () => {
   const debouncedSaveRef = useRef<ReturnType<typeof debounce> | null>(null);
 
   const { undo, redo, pastStates, futureStates } = useDiagramStore.temporal.getState();
+  const databaseSchema = useDiagramStore((s) => s.databaseSchema);
 
   // ✅ Optimized: Selective subscriptions - only re-render when these specific values change
   const interviewMode = useDiagramStore((state) => state.interviewMode);
@@ -350,8 +353,9 @@ export const TopBar: React.FC = () => {
       });
       
       const submissionId = await submitProblemSolution(
-        problemId, 
-        diagramData, 
+        problemId,
+        diagramData,
+        databaseSchema,
         submittedAnswers,
         interviewMode === 'mock' ? transcriptHistory : undefined,
         interviewMode || undefined
@@ -486,6 +490,13 @@ export const TopBar: React.FC = () => {
             </button>
           )}
 
+          <button
+            onClick={() => setShowSchemaModal(true)}
+            className="px-4 py-2 border border-input bg-background text-foreground rounded-lg hover:bg-accent transition-colors"
+          >
+            🗄️ Schema Design
+          </button>
+
           {/* Diagram Stats */}
           <div className="flex items-center gap-2 px-3 py-2 bg-muted rounded-lg">
             <div className="flex items-center gap-1 text-sm text-foreground">
@@ -603,6 +614,9 @@ export const TopBar: React.FC = () => {
             isOpen={showQaModal}
             onOpenChange={setShowQaModal}
           />
+        )}
+        {showSchemaModal && (
+          <SchemaDesignModal isOpen={showSchemaModal} onOpenChange={setShowSchemaModal} />
         )}
       </div>
     );
