@@ -77,7 +77,7 @@ export const TopBar: React.FC = () => {
   const [isSaving, setIsSaving] = useState(false);
   const debouncedSaveRef = useRef<ReturnType<typeof debounce> | null>(null);
 
-  const { undo, redo, pastStates, futureStates } = useDiagramStore.temporal.getState();
+  // temporal undo/redo state is rendered in the canvas overlay component
   const databaseSchema = useDiagramStore((s) => s.databaseSchema);
 
   // ✅ Optimized: Selective subscriptions - only re-render when these specific values change
@@ -227,8 +227,16 @@ export const TopBar: React.FC = () => {
         savedAt: new Date().toISOString(),
       }));
       
-      setLastSaved(new Date());
+      const now = new Date();
+      setLastSaved(now);
       setHasUnsavedChanges(false);
+      // Persist a last-saved timestamp and clear the dirty flag so bottom bar can read it
+      try {
+        localStorage.setItem(`diagram_last_saved_${key}`, now.toISOString());
+        localStorage.removeItem(`diagram_dirty_${key}`);
+      } catch (e) {
+        // ignore storage errors
+      }
       console.log('✅ Auto-saved diagram to localStorage');
     } catch (error) {
       console.error('❌ Auto-save failed:', error);
@@ -251,6 +259,13 @@ export const TopBar: React.FC = () => {
   useEffect(() => {
     if (nodes.length > 0 || edges.length > 0) {
       setHasUnsavedChanges(true);
+      // mark dirty so bottom bar can detect unsaved changes
+      try {
+        const key = problemId ? `diagram_${problemId}` : 'diagram_autosave';
+        localStorage.setItem(`diagram_dirty_${key}`, '1');
+      } catch (e) {
+        // ignore
+      }
       debouncedSaveRef.current?.();
     }
   }, [nodes, edges]);
@@ -380,42 +395,6 @@ export const TopBar: React.FC = () => {
 
   const hasSelection = nodes.some((n) => n.selected);
 
-  const sharedControls = (
-    <>
-      <button
-        onClick={() => undo()}
-        className="p-2 rounded bg-muted text-muted-foreground hover:bg-accent transition-colors disabled:opacity-50"
-        disabled={pastStates.length === 0}
-        title="Undo (Ctrl+Z)"
-      >
-        ⤺
-      </button>
-      <button
-        onClick={() => redo()}
-        className="p-2 rounded bg-muted text-muted-foreground hover:bg-accent disabled:opacity-50 transition-colors"
-        disabled={futureStates.length === 0}
-        title="Redo (Ctrl+Y)"
-      >
-        ⤼
-      </button>
-      <button
-        onClick={handleFitView}
-        className="p-2 rounded bg-muted text-muted-foreground hover:bg-accent transition-colors"
-        title="Fit View"
-      >
-        ⤢
-      </button>
-      <button
-        onClick={handleZoomToSelection}
-        disabled={!hasSelection}
-        className="p-2 rounded bg-muted text-muted-foreground hover:bg-accent disabled:opacity-50 transition-colors"
-        title="Zoom to Selection"
-      >
-        🔍
-      </button>
-    </>
-  );
-
   // ---------------- Problem Mode ----------------
   if (problemMode) {
     const isOverBudget =
@@ -479,39 +458,30 @@ export const TopBar: React.FC = () => {
             ) : null}
           </div>
 
-          {/* Q&A Modal */}
+          {/* Q&A Modal (short label) */}
           {qaData && (
             <button
               onClick={() => setShowQaModal(true)}
-              className="px-4 py-2 border border-input bg-background text-foreground rounded-lg hover:bg-accent transition-colors"
+              className="px-3 py-2 border border-input bg-background text-foreground rounded-lg hover:bg-accent transition-colors flex items-center gap-2"
+              aria-label="Open Q&A"
+              title="Q&A"
             >
-              Q&A Interview
+              <span className="hidden lg:inline">Q&A</span>
+              <span className="lg:hidden">💬</span>
             </button>
           )}
 
           <button
             onClick={() => setShowSchemaModal(true)}
-            className="px-4 py-2 border border-input bg-background text-foreground rounded-lg hover:bg-accent transition-colors"
+            className="px-3 py-2 border border-input bg-background text-foreground rounded-lg hover:bg-accent transition-colors flex items-center gap-2"
+            aria-label="Open DB Schema"
+            title="DB Schema"
           >
-            🗄️ Schema Design
+            <span className="hidden lg:inline">DB Schema</span>
+            <span className="lg:hidden">🗄️</span>
           </button>
 
-          {/* Diagram Stats */}
-          <div className="flex items-center gap-2 px-3 py-2 bg-muted rounded-lg">
-            <div className="flex items-center gap-1 text-sm text-foreground">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-              </svg>
-              <span className="font-medium">{nodes.length}</span>
-            </div>
-            <span className="text-muted-foreground">|</span>
-            <div className="flex items-center gap-1 text-sm text-foreground">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
-              <span className="font-medium">{edges.length}</span>
-            </div>
-          </div>
+          
 
           <Link href="/docs" className="p-2 rounded hover:bg-accent transition-colors" title="Documentation">
             <svg className="w-6 h-6 text-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -541,16 +511,17 @@ export const TopBar: React.FC = () => {
 
           <div className="h-8 w-px bg-border"></div>
 
-          {sharedControls}
+          {/* Theme toggle moved back to TopBar for quick access */}
+          <div className="px-2">
+            <ThemeToggle />
+          </div>
 
           <div className="h-8 w-px bg-border"></div>
-
-          <ThemeToggle />
 
           <button
             onClick={handleSubmit}
             disabled={submitDisabled}
-            className="px-6 py-2.5 bg-gradient-to-r from-green-600 to-green-700 text-white font-semibold rounded-lg hover:from-green-700 hover:to-green-800 disabled:opacity-50 disabled:cursor-not-allowed disabled:from-gray-400 disabled:to-gray-500 transition-all shadow-md hover:shadow-lg flex items-center gap-2"
+            className="px-4 py-2.5 bg-gradient-to-r from-green-600 to-green-700 text-white font-semibold rounded-lg hover:from-green-700 hover:to-green-800 disabled:opacity-50 disabled:cursor-not-allowed disabled:from-gray-400 disabled:to-gray-500 transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2"
             title={
               submitDisabled
                 ? isOverBudget
@@ -560,6 +531,7 @@ export const TopBar: React.FC = () => {
                   : 'Add components first'
                 : ''
             }
+            aria-label="Submit diagram"
           >
             {isSubmitting ? (
               <>
@@ -599,7 +571,7 @@ export const TopBar: React.FC = () => {
                     d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
                   />
                 </svg>
-                <span>Submit Solution</span>
+                <span>Submit</span>
               </>
             )}
           </button>
@@ -632,7 +604,6 @@ export const TopBar: React.FC = () => {
         📘
       </Link>
       <div className="flex items-center gap-3">
-        {sharedControls}
         <div className="h-8 w-px bg-border"></div>
         <ThemeToggle />
         <button
