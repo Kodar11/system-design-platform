@@ -234,7 +234,7 @@ export const TopBar: React.FC = () => {
       try {
         localStorage.setItem(`diagram_last_saved_${key}`, now.toISOString());
         localStorage.removeItem(`diagram_dirty_${key}`);
-      } catch (e) {
+      } catch {
         // ignore storage errors
       }
       console.log('✅ Auto-saved diagram to localStorage');
@@ -263,12 +263,12 @@ export const TopBar: React.FC = () => {
       try {
         const key = problemId ? `diagram_${problemId}` : 'diagram_autosave';
         localStorage.setItem(`diagram_dirty_${key}`, '1');
-      } catch (e) {
+      } catch {
         // ignore
       }
       debouncedSaveRef.current?.();
     }
-  }, [nodes, edges]);
+  }, [nodes, edges, problemId]);
 
   // Emergency save on page unload
   useEffect(() => {
@@ -300,9 +300,6 @@ export const TopBar: React.FC = () => {
     alert('Diagram saved successfully!');
   };
 
-  const handleFitView = (): void => {
-    reactFlowInstance?.fitView();
-  };
 
   const handleSubmit = async (): Promise<void> => {
     if (!problemId) {
@@ -384,16 +381,7 @@ export const TopBar: React.FC = () => {
     }
   };
 
-  const handleZoomToSelection = (): void => {
-    const selected = nodes.filter((n) => n.selected);
-    if (selected.length > 0 && reactFlowInstance) {
-      reactFlowInstance.fitView({ nodes: selected, padding: 0.25, duration: 600 });
-    } else {
-      handleFitView();
-    }
-  };
-
-  const hasSelection = nodes.some((n) => n.selected);
+  
 
   // ---------------- Problem Mode ----------------
   if (problemMode) {

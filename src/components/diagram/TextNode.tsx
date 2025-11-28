@@ -5,16 +5,32 @@ import React, { useEffect, useRef, useState } from 'react';
 import { NodeProps } from 'reactflow';
 import { useDiagramStore } from '@/store/diagramStore';
 
-const TextNode = ({ data, selected, id }: NodeProps) => {
+type TextNodeData = {
+  label?: string;
+  style?: React.CSSProperties;
+  metadata?: Record<string, unknown>;
+  [key: string]: unknown;
+};
+
+const TextNode = ({ data, selected, id }: NodeProps<TextNodeData>) => {
   const { updateNodeProperties, updateNode } = useDiagramStore();
-  const [content, setContent] = useState(data.label || '');
+  const [content, setContent] = useState(typeof data.label === 'string' ? data.label : '');
   const [isDark, setIsDark] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const resizingRef = useRef(false);
   const startRef = useRef({ x: 0, y: 0, width: 0, height: 0 });
+  const parseSize = (value: unknown, fallback: number) => {
+    if (typeof value === 'number') return value;
+    if (typeof value === 'string') {
+      const parsed = parseFloat(value.replace(/px$/i, ''));
+      return Number.isFinite(parsed) ? parsed : fallback;
+    }
+    return fallback;
+  };
+
   const [localSize, setLocalSize] = useState<{ width: number; height: number }>(() => ({
-    width: (data.style && (data.style as any).width) || 150,
-    height: (data.style && (data.style as any).height) || 100,
+    width: parseSize(data.style?.width, 150),
+    height: parseSize(data.style?.height, 100),
   }));
 
   useEffect(() => {
@@ -33,12 +49,21 @@ const TextNode = ({ data, selected, id }: NodeProps) => {
     detect();
     const mql = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)');
     const onChange = () => detect();
-    mql && mql.addEventListener && mql.addEventListener('change', onChange);
+    if (mql && (mql as MediaQueryList).addEventListener) {
+      (mql as MediaQueryList).addEventListener('change', onChange);
+    } else if (mql && (mql as unknown as { addListener?: (fn: () => void) => void }).addListener) {
+      // older browsers
+      (mql as unknown as { addListener: (fn: () => void) => void }).addListener(onChange);
+    }
     // also observe class changes (in case theme toggles by adding/removing .dark)
     const observer = new MutationObserver(() => detect());
     observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
     return () => {
-      mql && mql.removeEventListener && mql.removeEventListener('change', onChange);
+      if (mql && (mql as MediaQueryList).removeEventListener) {
+        (mql as MediaQueryList).removeEventListener('change', onChange);
+      } else if (mql && (mql as unknown as { removeListener?: (fn: () => void) => void }).removeListener) {
+        (mql as unknown as { removeListener: (fn: () => void) => void }).removeListener(onChange);
+      }
       observer.disconnect();
     };
   }, []);
@@ -56,8 +81,8 @@ const TextNode = ({ data, selected, id }: NodeProps) => {
 
   // Keep localSize in sync if external data.style changes
   useEffect(() => {
-    const w = (data.style && (data.style as any).width) || 150;
-    const h = (data.style && (data.style as any).height) || 100;
+    const w = parseSize(data.style?.width, 150);
+    const h = parseSize(data.style?.height, 100);
     setLocalSize({ width: w, height: h });
   }, [data.style]);
 
@@ -68,7 +93,7 @@ const TextNode = ({ data, selected, id }: NodeProps) => {
     // try to capture the pointer on the target for robustness
     try {
       (e.target as Element)?.setPointerCapture?.(e.pointerId);
-    } catch (err) {
+    } catch {
       // ignore if not supported
     }
     startRef.current = {
@@ -99,13 +124,12 @@ const TextNode = ({ data, selected, id }: NodeProps) => {
         width: newW,
         height: newH,
       });
-    } catch (err) {
+    } catch {
       // fallback to updating data if updateNode isn't available
       updateNodeProperties(id, { style: { ...(data.style || {}), width: newW, height: newH } });
     }
   };
-
-  const stopPointerResizing = (ev?: PointerEvent) => {
+  const stopPointerResizing = () => {
     if (!resizingRef.current) return;
     resizingRef.current = false;
     document.removeEventListener('pointermove', onPointerMove as EventListener);
@@ -117,7 +141,7 @@ const TextNode = ({ data, selected, id }: NodeProps) => {
         width: localSize.width,
         height: localSize.height,
       });
-    } catch (err) {
+    } catch {
       updateNodeProperties(id, { style: { ...(data.style || {}), width: localSize.width, height: localSize.height } });
     }
   };

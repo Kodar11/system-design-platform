@@ -2,10 +2,10 @@
 "use client";
 
 import React, { useCallback } from 'react';
-import { useEffect, useState } from 'react';
+import {  useState } from 'react';
 import { useDiagramStore } from '@/store/diagramStore';
 import { useReactFlow } from 'reactflow';
-import { usePathname } from 'next/navigation';
+
 import { exportJSON, exportPNG } from './exportUtils';
 import FixedAboveMenu from './FixedAboveMenu';
 // Undo/Redo will be rendered in BottomBar center for better layout
@@ -22,11 +22,10 @@ export const BottomBar = () => {
     setNodes,
     setEdges,
     nodes,
-    edges,
   } = useDiagramStore();
 
   const centerButtonRef = React.useRef<HTMLButtonElement | null>(null);
-  const [menuPos, setMenuPos] = useState<{ left: number; top: number } | null>(null);
+
 
   
 
@@ -61,26 +60,7 @@ export const BottomBar = () => {
     }
   }, [reactFlowInstance, setNodes, setEdges]);
 
-    // Determine problemId from pathname so we can read saved metadata
-    const pathname = usePathname();
-    const [problemId, setProblemId] = useState<string | null>(null);
-    useEffect(() => {
-      const match = pathname?.match(/^\/problems\/([^\/]+)(?:\/|$)/);
-      if (match && match[1]) setProblemId(match[1]);
-      else setProblemId(null);
-    }, [pathname]);
-
-    // Autosave indicator: only read dirty flag (Saved / Unsaved)
-    const [hasUnsaved, setHasUnsaved] = useState(false);
-    useEffect(() => {
-      if (typeof window === 'undefined') return;
-      const key = problemId ? `diagram_${problemId}` : 'diagram_autosave';
-      try {
-        setHasUnsaved(!!localStorage.getItem(`diagram_dirty_${key}`));
-      } catch (e) {
-        setHasUnsaved(false);
-      }
-    }, [problemId, nodes.length, edges.length]);
+    // (removed unused problemId retrieval — not needed in this toolbar)
 
   return (
     <div className="bottom-bar py-3 px-4 bg-card border-t border-border shadow-xl">
@@ -182,7 +162,7 @@ export const BottomBar = () => {
                           onClose={() => setCenterMenuOpen(false)}
                           onExportJSON={() => { exportJSON(reactFlowInstance); }}
                           onExportPNG={() => { exportPNG(reactFlowInstance); }}
-                          onImport={(e) => handleImport(e)}
+                          onImport={handleImport}
                         />
                       )}
                     </div>

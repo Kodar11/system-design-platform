@@ -1,8 +1,9 @@
 "use client";
 
 import { toPng } from 'html-to-image';
+import type { ReactFlowInstance } from 'reactflow';
 
-export const exportJSON = (reactFlowInstance: any, filename = 'diagram.json') => {
+export const exportJSON = (reactFlowInstance: ReactFlowInstance | null | undefined, filename = 'diagram.json'): void => {
   if (!reactFlowInstance) return;
   const flow = reactFlowInstance.toObject();
   const jsonString = JSON.stringify(flow, null, 2);
@@ -15,13 +16,13 @@ export const exportJSON = (reactFlowInstance: any, filename = 'diagram.json') =>
   URL.revokeObjectURL(url);
 };
 
-export const exportPNG = async (reactFlowInstance: any) => {
+export const exportPNG = async (reactFlowInstance: ReactFlowInstance | null | undefined): Promise<void> => {
   if (!reactFlowInstance) return;
-  const element = document.querySelector('.react-flow__viewport') as HTMLElement;
+  const element = document.querySelector('.react-flow__viewport') as HTMLElement | null;
   if (!element) return;
 
   // determine dark mode for background
-  const theme = typeof window !== 'undefined' ? (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light') : 'light';
+  const theme = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   const isDark = theme === 'dark';
 
   try {
@@ -49,9 +50,7 @@ export const exportPNG = async (reactFlowInstance: any) => {
     link.click();
   } catch (error) {
     // keep original behavior: log and alert
-    // eslint-disable-next-line no-console
     console.error('PNG export error:', error);
-    // eslint-disable-next-line no-alert
     alert(`PNG export failed: ${(error as Error).message}`);
   }
 };

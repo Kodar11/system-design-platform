@@ -13,56 +13,66 @@ export default async function Home() {
   const features = [
     {
       icon: Sparkles,
-      title: "AI-Powered Architecture",
-      description: "Generate optimized system designs using our hybrid AI approach with fine-tuned models and knowledge-based systems."
-    },
-    {
-      icon: DollarSign,
-      title: "Accurate Cost Estimates",
-      description: "Get real-time cost calculations for your infrastructure with our advanced algorithmic pricing engine."
+      title: "AI That Challenges You",
+      description:
+        "Receive carefully crafted prompts, counter-questions, and critiques designed to push your thinking — not just generate answers."
     },
     {
       icon: Layout,
-      title: "Interactive Editor",
-      description: "Drag-and-drop components to visualize and modify your system architecture in real-time."
+      title: "Visual System Designer",
+      description:
+        "Drag, drop, and connect components to build real-world architectures while instantly seeing improvement suggestions."
     },
     {
       icon: BookOpen,
-      title: "Learn by Doing",
-      description: "Solve curated system design problems and learn best practices through hands-on experience."
-    },
-    {
-      icon: Zap,
-      title: "RAG-Powered Insights",
-      description: "Benefit from Retrieval Augmented Generation for factually accurate and up-to-date recommendations."
+      title: "Learn by Solving",
+      description:
+        "Work on beginner to advanced problems, architecture breakdowns, scalability exercises, and real system case studies."
     },
     {
       icon: Users,
-      title: "Built for Everyone",
-      description: "Whether you're a student or professional developer, our platform adapts to your learning journey."
+      title: "Interview-Ready Framework",
+      description:
+        "Follow guided templates and mental models to structure responses clearly — perfect for FAANG-style interviews."
+    },
+    {
+      icon: Zap,
+      title: "Smart Knowledge Retrieval",
+      description:
+        "Get factual insights powered by curated system design knowledge, not generic or outdated internet content."
+    },
+    {
+      icon: DollarSign,
+      title: "Build & Evaluate Systems",
+      description:
+        "Configure storage, caching, APIs, load balancers, queues, consistency models, and more — just like production engineers."
     }
   ];
 
   const steps = [
     {
       number: "01",
-      title: "Sign Up & Get Credits",
-      description: "Create your account and receive daily credits for designs and problem-solving."
+      title: "Understand the Problem",
+      description:
+        "Start with requirements and constraints — the foundation of all real system design thinking."
     },
     {
       number: "02",
-      title: "Describe Your System",
-      description: "Tell us your requirements and let our AI generate an optimized architecture."
+      title: "Design & Visualize",
+      description:
+        "Use the editor to map architecture, choose technologies, and explore trade-offs interactively."
     },
     {
       number: "03",
-      title: "Customize & Visualize",
-      description: "Use the interactive editor to refine your design and see cost estimates in real-time."
+      title: "Get AI Evaluation",
+      description:
+        "Receive structured feedback, alternative approaches, scalability insights, and improvement suggestions."
     },
     {
       number: "04",
-      title: "Learn & Iterate",
-      description: "Solve practice problems, get feedback, and master system design principles."
+      title: "Practice & Master",
+      description:
+        "Solve new problems, refine your thought process, acquired new skills and develop confidence to build at any scale."
     }
   ];
 
@@ -95,15 +105,15 @@ export default async function Home() {
         <section className="pt-20 pb-16 px-4 sm:px-6 lg:px-8">
           <div className="max-w-7xl mx-auto text-center">
             <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold text-foreground mb-6 leading-tight">
-              Master System Design
+              Learn System Design
               <span className="block text-transparent bg-clip-text bg-gradient-to-r from-primary via-blue-500 to-purple-600">
-                with AI Guidance
+                Through Real Thinking & Practice
               </span>
             </h1>
             <p className="text-xl text-muted-foreground max-w-3xl mx-auto mb-10 leading-relaxed">
-              Transform complex architecture decisions into intuitive, optimized solutions. 
-              Learn by doing with our AI-powered platform that combines intelligent reasoning 
-              with precise cost calculations.
+              Build your judgment, improve reasoning, and learn scalable architecture the way
+              real engineers do: by designing, breaking, improving, and understanding systems—
+              with AI guiding you through every decision.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               {session ? (
@@ -216,35 +226,18 @@ export default async function Home() {
           </div>
         </section>
 
-        {/* Stats Section */}
-        <section className="py-20 px-4 sm:px-6 lg:px-8">
-          <div className="max-w-7xl mx-auto">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              <div className="text-center bg-card/80 backdrop-blur-md border-2 border-border/70 rounded-2xl p-8">
-                <div className="text-5xl font-bold text-primary mb-2">10K+</div>
-                <div className="text-lg text-muted-foreground">Active Users</div>
-              </div>
-              <div className="text-center bg-card/80 backdrop-blur-md border-2 border-border/70 rounded-2xl p-8">
-                <div className="text-5xl font-bold text-primary mb-2">50K+</div>
-                <div className="text-lg text-muted-foreground">Designs Generated</div>
-              </div>
-              <div className="text-center bg-card/80 backdrop-blur-md border-2 border-border/70 rounded-2xl p-8">
-                <div className="text-5xl font-bold text-primary mb-2">95%</div>
-                <div className="text-lg text-muted-foreground">Success Rate</div>
-              </div>
-            </div>
-          </div>
-        </section>
+
 
         {/* CTA Section */}
         <section className="py-20 px-4 sm:px-6 lg:px-8">
           <div className="max-w-4xl mx-auto text-center">
             <div className="bg-gradient-to-br from-primary/10 via-transparent to-blue-500/10 border border-primary/20 rounded-3xl p-12 backdrop-blur-md">
               <h2 className="text-4xl font-bold text-foreground mb-6">
-                Ready to Transform Your System Design Skills?
+                Ready to Think Like a Systems Engineer?
               </h2>
               <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
-                Join thousands of developers and students who are mastering system design with AI-powered guidance.
+                Start learning the way real architects grow — by solving meaningful problems,
+                visualizing ideas, and improving through feedback and iteration.
               </p>
               {!session && (
                 <Link
