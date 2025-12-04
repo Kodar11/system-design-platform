@@ -5,6 +5,21 @@ import { prisma } from '@/lib/prisma/userService';
 // Cache problems list for 1 hour (lightweight - only list data)
 export const getCachedProblems = unstable_cache(
   async () => {
+    // In development, bypass the unstable cache so newly-seeded problems
+    // appear immediately without restarting the dev server.
+    if (process.env.NODE_ENV !== 'production') {
+      return await prisma.problem.findMany({
+        where: { isDeleted: false },
+        select: {
+          id: true,
+          title: true,
+          difficulty: true,
+          requirements: true,
+        },
+        orderBy: { difficulty: 'asc' },
+      });
+    }
+
     return await prisma.problem.findMany({
       where: { isDeleted: false },
       select: {
@@ -55,14 +70,17 @@ export const getCachedProblemById = unstable_cache(
         id: problemId,
         isDeleted: false 
       },
-      select: {
+      // Cast select to any because Prisma client types may be out-of-date with schema changes
+      select: ({
         id: true,
         title: true,
         difficulty: true,
         requirements: true,
         initialRequirementsQa: true,
         interviewQuestions: true,
-      },
+        components: true,
+        starterDiagram: true,
+      } as any),
     });
   },
   ['problem-by-id'],

@@ -81,6 +81,8 @@ model Problem {
   requirements          Json              
   initialRequirementsQa Json              
   interviewQuestions    Json              
+  components            Json?
+  starterDiagram        Json?
   difficulty            Difficulty        @default(MEDIUM)
   isDeleted             Boolean           @default(false)
   submissions           Submission[]

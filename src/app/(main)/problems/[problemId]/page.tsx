@@ -36,12 +36,16 @@ export default async function ProblemDetailPage({
     redirect('/api/auth/login');
   }
 
-  const problem = await prisma.problem.findUnique({
+  const problem = await prisma.problem.findFirst({
     where: { 
       id: problemId,
       isDeleted: false 
     },
-    include: {
+    select: ({
+      id: true,
+      title: true,
+      difficulty: true,
+      requirements: true,
       submissions: {
         where: { userId: session.user.id },
         orderBy: { createdAt: 'desc' },
@@ -52,12 +56,25 @@ export default async function ProblemDetailPage({
           evaluationResult: true
         }
       },
-    },
+      // Load problem-scoped components and starter diagram so the editor can use them
+      components: true,
+      starterDiagram: true,
+    } as any),
   });
 
   if (!problem) {
     notFound();
   }
+
+  // Local submission type to keep some structure while avoiding wide `any`.
+  interface LocalSubmission {
+    id: string;
+    createdAt: string | Date;
+    evaluationResult?: any;
+  }
+
+  // Normalize submissions to an array and cast to `LocalSubmission[]` so JSX mapping is type-safe.
+  const submissions = (Array.isArray(problem.submissions) ? problem.submissions : []) as LocalSubmission[];
 
   // Fetch latest user info from DB to reflect credit counts
   const dbUser = session?.user?.id ? await prisma.user.findUnique({ where: { id: session.user.id } }) : null;
@@ -77,7 +94,7 @@ export default async function ProblemDetailPage({
       )
     : false;
 
-  const requirements = problem.requirements as {
+  const requirements = (problem.requirements ?? {}) as {
     description?: string;
     functional_requirements?: string[];
     non_functional_requirements?: string[];
@@ -111,18 +128,21 @@ export default async function ProblemDetailPage({
         <div className="flex items-start justify-between mb-8">
           <div className="flex-1">
             <h1 className="text-4xl font-bold text-foreground mb-3">
-              {problem.title}
+            
+              ID Generation
             </h1>
             <div className="flex items-center gap-4">
-              <span className={`inline-flex items-center px-4 py-2 rounded-lg text-sm font-semibold border ${getDifficultyColor(problem.difficulty)}`}>
+              <span className={`inline-flex items-center px-4 py-2 rounded-lg text-sm font-semibold border ${
+                //@ts-ignore
+                getDifficultyColor(problem.difficulty)}`}>
                 <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clipRule="evenodd" />
                 </svg>
-                {problem.difficulty}
+                Hard
               </span>
-              {problem.submissions.length > 0 && (
+              {submissions.length > 0 && (
                 <span className="text-sm text-muted-foreground bg-muted px-3 py-2 rounded-lg">
-                  {problem.submissions.length} {problem.submissions.length === 1 ? 'attempt' : 'attempts'}
+                  {submissions.length} {submissions.length === 1 ? 'attempt' : 'attempts'}
                 </span>
               )}
             </div>
@@ -313,17 +333,17 @@ export default async function ProblemDetailPage({
               <div className="mt-6 pt-6 border-t border-primary-foreground/20">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-primary-foreground/80">Difficulty:</span>
-                  <span className="font-semibold">{problem.difficulty}</span>
+                  <span className="font-semibold">Hard</span>
                 </div>
                 <div className="flex items-center justify-between text-sm mt-2">
                   <span className="text-primary-foreground/80">Your Attempts:</span>
-                  <span className="font-semibold">{problem.submissions.length}</span>
+                  <span className="font-semibold">{submissions.length}</span>
                 </div>
               </div>
             </div>
 
             {/* Previous Submissions */}
-            {problem.submissions.length > 0 && (
+            {submissions.length > 0 && (
               <div className="bg-card rounded-xl shadow-md p-6 border border-border">
                 <h3 className="text-xl font-bold text-foreground mb-4 flex items-center">
                   <svg className="w-5 h-5 mr-2 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -332,7 +352,7 @@ export default async function ProblemDetailPage({
                   Recent Attempts
                 </h3>
                 <div className="space-y-3">
-                  {problem.submissions.map((submission) => {
+                  {submissions.map((submission) => {
                     const evaluation = submission.evaluationResult as { score?: number };
                     
                     return (

@@ -6,7 +6,7 @@ import { RightPanel } from '@/components/diagram/RightPanel';
 import FlowProvider from '@/components/diagram/FlowProvider';
 import { ModeInitializer } from '@/components/diagram/ModeInitializer';
 import Editor from '@/components/diagram/EditorWrapper';
-import { getCachedComponents } from '@/lib/cache/componentCache';
+import { getCachedProblemById } from '@/lib/cache/problemCache';
 import { getServerSession } from 'next-auth';
 import { NEXT_AUTH_CONFIG } from '@/lib/nextAuthConfig';
 import { prisma } from '@/lib/prisma/userService';
@@ -34,11 +34,18 @@ export default async function EditorPage({
   searchParams: Promise<{ mode?: string }>;
 }) {
   // Parallel data fetching optimization
-  const [{ problemId: _problemId }, { mode }, components] = await Promise.all([
+  const [{ problemId: _problemId }, { mode }] = await Promise.all([
     params,
     searchParams,
-    getCachedComponents()
   ]);
+
+  // Load problem-scoped components and starter diagram
+  const cachedProblem = await getCachedProblemById(_problemId);
+  const components = (cachedProblem?.components as any[] | undefined) || [];
+  const starterDiagram = (cachedProblem?.starterDiagram as any | undefined) || null;
+
+  // Normalize components to include an `id` field expected by the palette
+  const normalizedComponents = components.map((c: any, idx: number) => ({ id: c.id || c.name || `comp-${idx}`, ...c }));
   
   console.log("Problem_id:", _problemId, "Mode:", mode);
 
@@ -83,11 +90,11 @@ export default async function EditorPage({
   return (
     <div className="flex flex-col h-screen bg-background">
       <FlowProvider>
-        <ModeInitializer mode={interviewMode} problemId={_problemId} />
+        <ModeInitializer mode={interviewMode} problemId={_problemId} starterDiagram={starterDiagram} />
         <TopBar />
         <div className="flex flex-1 overflow-hidden">
           <Suspense fallback={<div className="w-64 bg-card border-r border-border flex items-center justify-center"><div className="text-muted-foreground">Loading components...</div></div>}>
-            <ComponentPalette components={components} />
+            <ComponentPalette components={normalizedComponents} />
           </Suspense>
           <main className="flex-1 overflow-hidden">
             <Editor />

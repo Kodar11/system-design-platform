@@ -115,6 +115,19 @@ interface DiagramData {
     edges?: EdgeData[];
 }
 
+// Local type to represent Problem records that include the new JSON fields
+interface ProblemWithComponents {
+  id: string;
+  title: string;
+  requirements?: unknown;
+  initialRequirementsQa?: unknown;
+  interviewQuestions?: unknown;
+  components?: unknown;
+  starterDiagram?: { nodes?: unknown[]; edges?: unknown[] } | null;
+  difficulty?: string;
+  submissions?: unknown[];
+}
+
 // Updated submitProblemSolution function in src/app/actions.ts
 // (Replace the existing function with this updated version)
 
@@ -163,13 +176,15 @@ export async function submitProblemSolution(
   }
 
   // 2. Get the problem from database
-  const problem = await prisma.problem.findUnique({
-    where: { id: problemId, isDeleted: false }
-  });
+  const problemRaw = (await prisma.problem.findUnique({
+    where: { id: problemId, isDeleted: false },
+  })) as any;
 
-  if (!problem) {
+  if (!problemRaw) {
     throw new Error("Problem not found or has been deleted");
   }
+
+  const problem = problemRaw as ProblemWithComponents;
 
   // Enforce credit checks server-side: user must have credits for the chosen mode
   const dbUser = await prisma.user.findUnique({ where: { id: session.user.id } });
@@ -955,13 +970,13 @@ export async function sendOtp(email: string, newUserData?: TempUserData) {
 }
 
 export async function getProblem(problemId: string) {
-  const problem = await prisma.problem.findUnique({
+  const problemRaw = (await prisma.problem.findUnique({
     where: { id: problemId, isDeleted: false },
-  });
-  if (!problem) {
+  })) as any;
+  if (!problemRaw) {
     throw new Error("Problem not found");
   }
-  return problem;
+  return problemRaw as ProblemWithComponents;
 }
 
 interface TranscriptEntry {
@@ -1039,7 +1054,15 @@ export async function interactWithInterviewer(request: InterviewerRequest): Prom
   }
 
   const problem = await prisma.problem.findUnique({
-    where: { id: request.problemId, isDeleted: false }
+    where: { id: request.problemId, isDeleted: false },
+    select: {
+      id: true,
+      title: true,
+      requirements: true,
+      difficulty: true,
+      components: true,
+      starterDiagram: true,
+    },
   });
 
   if (!problem) {
